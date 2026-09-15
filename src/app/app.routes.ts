@@ -10,6 +10,8 @@ import { CandidateDetailComponent } from './features/candidates/candidate-detail
 import { InternshipListComponent } from './features/internships/internship-list.component';
 import { InternshipDetailComponent } from './features/internships/internship-detail.component';
 import { InternshipCreateComponent } from './features/internships/internship-create.component';
+import { FinanceQueueComponent } from './features/finance/finance-queue.component';
+import { FinanceDetailComponent } from './features/finance/finance-detail.component';
 import {
   PlaceholderComponent,
   ForbiddenComponent,
@@ -112,15 +114,15 @@ export const routes: Routes = [
       },
       {
         path: 'finance',
-        component: PlaceholderComponent,
+        component: FinanceQueueComponent,
         canActivate: [permissionGuard(['FINANCE_CASE_VIEW'])],
-        data: placeholder(
-          'Finance & payments',
-          'Backend-calculated amounts only · Phase C5',
-          'Finance workspace lands in Phase C5.',
-          'nav.finance',
-        ),
         title: 'STEG Back Office — Finance',
+      },
+      {
+        path: 'finance/:id',
+        component: FinanceDetailComponent,
+        canActivate: [permissionGuard(['FINANCE_CASE_VIEW'])],
+        title: 'STEG Back Office — Finance case',
       },
       {
         path: 'reports',

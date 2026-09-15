@@ -11,6 +11,12 @@ import type {
   NotificationItem,
   FinanceCaseQueueItem,
   FinanceCaseStatus,
+  FinanceCaseDetail,
+  FinanceCaseDocument,
+  PaymentDecisionBody,
+  FinanceDocumentReviewBody,
+  AiAnalysisResult,
+  AiRecommendation,
   ApplicationDetail,
   WorkflowTransitionRequest,
   WorkflowInstanceResponse,
@@ -430,6 +436,100 @@ export class ApiClient {
   getDocumentMetadata(documentId: string): Observable<DocumentFile> {
     return this.http
       .get<DocumentFile>(`${this.baseUrl}/api/documents/${documentId}`)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /* -------- Phase C5 — finance & payment workspace -------- */
+
+  /**
+   * Server-paginated finance queue (FINANCE/ADMIN). Status is the only
+   * backend-supported filter; period/department/eligibility refine the
+   * loaded page client-side (see finance queue component).
+   */
+  listFinanceCases(
+    status: FinanceCaseStatus | '',
+    page: number,
+    size: number,
+    sort = 'openedAt,desc',
+  ): Observable<Page<FinanceCaseQueueItem>> {
+    let params = this.pageable(page, size, sort);
+    if (status) params = params.set('status', status);
+    return this.http
+      .get<Page<FinanceCaseQueueItem>>(`${this.baseUrl}/api/finance-cases`, { params })
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Full case with calculation, dossier and approval history (FINANCE/ADMIN). */
+  getFinanceCase(id: string): Observable<FinanceCaseDetail> {
+    return this.http
+      .get<FinanceCaseDetail>(`${this.baseUrl}/api/finance-cases/${id}`)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Recompute the payment snapshot pre-decision (FINANCE/ADMIN, audited). */
+  recalculateCase(id: string): Observable<FinanceCaseDetail> {
+    return this.http
+      .post<FinanceCaseDetail>(`${this.baseUrl}/api/finance-cases/${id}/recalculate`, {})
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Approve payment + issue receipt (FINANCE role only, comment optional). */
+  approveCase(id: string, comment?: string): Observable<FinanceCaseDetail> {
+    const body: PaymentDecisionBody = comment?.trim() ? { comment: comment.trim() } : {};
+    return this.http
+      .post<FinanceCaseDetail>(`${this.baseUrl}/api/finance-cases/${id}/approve`, body)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Reject payment (FINANCE role only, reason mandatory backend-side). */
+  rejectCase(id: string, reason: string): Observable<FinanceCaseDetail> {
+    return this.http
+      .post<FinanceCaseDetail>(`${this.baseUrl}/api/finance-cases/${id}/reject`, {
+        comment: reason.trim(),
+      })
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Receipt PDF download (backend checks FINANCE/ADMIN/HR-or-supervisor). */
+  downloadReceipt(caseId: string): Observable<Blob> {
+    return this.http
+      .get(`${this.baseUrl}/api/finance-cases/${caseId}/receipt`, { responseType: 'blob' })
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Review one dossier document (FINANCE/ADMIN). */
+  reviewFinanceDocument(
+    caseId: string,
+    documentId: string,
+    body: FinanceDocumentReviewBody,
+  ): Observable<FinanceCaseDocument> {
+    return this.http
+      .patch<FinanceCaseDocument>(
+        `${this.baseUrl}/api/finance-cases/${caseId}/documents/${documentId}`,
+        body,
+      )
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /**
+   * Advisory AI analysis of the dossier (ADMIN/FINANCE). CIN content is
+   * excluded backend-side; the result only ever proposes recommendations.
+   */
+  analyzeFinanceCase(caseId: string): Observable<AiAnalysisResult> {
+    return this.http
+      .post<AiAnalysisResult>(`${this.baseUrl}/api/ai/finance-cases/${caseId}/analyze`, {})
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Human traceability review of one AI recommendation (no state change). */
+  reviewAiRecommendation(
+    recommendationId: string,
+    status: 'ACCEPTED_BY_HUMAN' | 'DISMISSED',
+  ): Observable<AiRecommendation> {
+    return this.http
+      .post<AiRecommendation>(`${this.baseUrl}/api/ai/recommendations/${recommendationId}/review`, {
+        status,
+      })
       .pipe(catchError((e) => throwError(() => e)));
   }
 }

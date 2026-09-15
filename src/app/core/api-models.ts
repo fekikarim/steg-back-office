@@ -516,6 +516,98 @@ export const REQUIRED_DOSSIER_TYPES: readonly DocumentType[] = [
   'STEG_INTERNSHIP_REPORT',
 ];
 
+/* ------------------------------------------------------------------ */
+/* Phase C5 — finance & payment workspace contracts.                   */
+/* Mirrors Phase A11 endpoints. Calculation fields are rendered        */
+/* verbatim; no payment formula lives in the client.                   */
+/* ------------------------------------------------------------------ */
+
+/** GET /api/finance-cases/{id} — full case with calculation + history. */
+export interface FinanceCaseDetail {
+  readonly id: string;
+  readonly reference: string;
+  readonly status: FinanceCaseStatus;
+  readonly internshipId: string;
+  readonly internshipReference: string;
+  readonly openedAt: string;
+  readonly closedAt: string | null;
+  readonly workflowInstanceId: string;
+  readonly calculation: PaymentCalculation | null;
+  readonly documents: readonly FinanceCaseDocument[];
+  readonly approvals: readonly PaymentApproval[];
+  readonly receiptReference: string | null;
+}
+
+/** Backend payment snapshot — displayed verbatim, never recomputed. */
+export interface PaymentCalculation {
+  readonly completedMonths: number;
+  readonly payableMonths: number;
+  readonly ratePerMonth: number;
+  readonly calculatedAmount: number;
+  readonly cappedAmount: number;
+  readonly capApplied: boolean;
+  readonly currencyCode: string;
+  readonly calculatedAt: string;
+}
+
+export interface PaymentApproval {
+  readonly id: string;
+  readonly decision: 'PENDING' | 'APPROVED' | 'REJECTED' | 'RETURNED';
+  readonly comment: string | null;
+  readonly decisionSequence: number;
+  readonly decidedAt: string;
+  readonly decidedByName: string;
+}
+
+export interface FinanceCaseDocument {
+  readonly documentId: string;
+  readonly documentReference: string;
+  readonly documentType: DocumentType;
+  readonly mandatory: boolean;
+  readonly verificationStatus: DocumentVerificationStatus;
+  readonly verificationComment: string | null;
+  readonly reviewedAt: string | null;
+  readonly reviewedByName: string | null;
+}
+
+export interface PaymentDecisionBody {
+  readonly comment?: string;
+}
+
+export interface FinanceDocumentReviewBody {
+  readonly status: DocumentVerificationStatus;
+  readonly comment?: string;
+}
+
+/** Advisory AI result — recommendations are read-only proposals for humans. */
+export interface AiAnalysisResult {
+  readonly analysis: AiAnalysis;
+  readonly recommendations: readonly AiRecommendation[];
+  readonly responseText: string;
+}
+
+export interface AiAnalysis {
+  readonly id: string;
+  readonly type: string;
+  readonly relatedEntityType: string;
+  readonly relatedEntityId: string;
+  readonly modelUsed: string;
+  readonly inputSummary: string;
+  readonly outputSummary: string;
+  readonly cinExcluded: boolean;
+  readonly createdAt: string;
+}
+
+export interface AiRecommendation {
+  readonly id: string;
+  readonly analysisId: string;
+  readonly recommendationText: string;
+  readonly status: 'PROPOSED' | 'ACCEPTED_BY_HUMAN' | 'DISMISSED';
+  readonly reviewedById: string | null;
+  readonly reviewedAt: string | null;
+  readonly createdAt: string;
+}
+
 /** Backend error → user-safe message mapping (no stack traces, no secrets). */
 export function toUserMessage(error: unknown): string {
   if (typeof error === 'object' && error !== null && 'error' in error) {
