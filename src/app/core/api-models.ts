@@ -608,6 +608,52 @@ export interface AiRecommendation {
   readonly createdAt: string;
 }
 
+/* ------------------------------------------------------------------ */
+/* Phase C6 — administration workspace contracts.                      */
+/* Department/employee/audit mirror the backend; user-account           */
+/* provisioning has no backend endpoint (marked pending in UI).        */
+/* ------------------------------------------------------------------ */
+
+export interface DepartmentRequest {
+  readonly code: string;
+  readonly name: string;
+  readonly description?: string;
+  readonly parentDepartmentId?: string | null;
+}
+
+export interface EmployeeRequest {
+  readonly employeeNumber: string;
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly phoneNumber?: string;
+  readonly position?: string;
+  readonly hireDate?: string;
+  readonly departmentId: string;
+  readonly userId?: string | null;
+}
+
+/** GET /api/audit item. old/new values are opaque backend-redacted JSON. */
+export interface AuditLogEntry {
+  readonly id: string;
+  readonly createdAt: string;
+  readonly action: string;
+  readonly entityType: string;
+  readonly entityId: string;
+  readonly oldValues: string | null;
+  readonly newValues: string | null;
+  readonly actorId: string;
+  readonly actorEmail: string;
+  readonly ipAddress: string;
+}
+
+export interface AuditQuery {
+  readonly action?: string;
+  readonly entityId?: string;
+  readonly actorId?: string;
+  readonly page: number;
+  readonly size: number;
+}
+
 /** Backend error → user-safe message mapping (no stack traces, no secrets). */
 export function toUserMessage(error: unknown): string {
   if (typeof error === 'object' && error !== null && 'error' in error) {

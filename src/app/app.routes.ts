@@ -12,6 +12,8 @@ import { InternshipDetailComponent } from './features/internships/internship-det
 import { InternshipCreateComponent } from './features/internships/internship-create.component';
 import { FinanceQueueComponent } from './features/finance/finance-queue.component';
 import { FinanceDetailComponent } from './features/finance/finance-detail.component';
+import { AdminWorkspaceComponent } from './features/admin/admin-workspace.component';
+import { AuditViewerComponent } from './features/admin/audit-viewer.component';
 import {
   PlaceholderComponent,
   ForbiddenComponent,
@@ -149,26 +151,14 @@ export const routes: Routes = [
       },
       {
         path: 'audit',
-        component: PlaceholderComponent,
+        component: AuditViewerComponent,
         canActivate: [permissionGuard(['AUDIT_VIEW'])],
-        data: placeholder(
-          'Audit',
-          'Read-only · Phase C6',
-          'Audit viewer lands in Phase C6.',
-          'nav.audit',
-        ),
         title: 'STEG Back Office — Audit',
       },
       {
         path: 'admin',
-        component: PlaceholderComponent,
+        component: AdminWorkspaceComponent,
         canActivate: [permissionGuard(['USER_MANAGE'])],
-        data: placeholder(
-          'Administration',
-          'Users, roles, departments · Phase C6',
-          'Administration lands in Phase C6.',
-          'nav.admin',
-        ),
         title: 'STEG Back Office — Administration',
       },
     ],

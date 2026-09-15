@@ -42,6 +42,10 @@ import type {
   AttachInternshipDocumentBody,
   DocumentType,
   DocumentFile,
+  DepartmentRequest,
+  EmployeeRequest,
+  AuditLogEntry,
+  AuditQuery,
 } from './api-models';
 
 /**
@@ -530,6 +534,65 @@ export class ApiClient {
       .post<AiRecommendation>(`${this.baseUrl}/api/ai/recommendations/${recommendationId}/review`, {
         status,
       })
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /* -------- Phase C6 — administration workspace -------- */
+
+  /** Departments (mutations: ADMIN only, enforced backend-side). */
+  createDepartment(body: DepartmentRequest): Observable<Department> {
+    return this.http
+      .post<Department>(`${this.baseUrl}/api/departments`, body)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  updateDepartment(id: string, body: DepartmentRequest): Observable<Department> {
+    return this.http
+      .put<Department>(`${this.baseUrl}/api/departments/${id}`, body)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Soft-deactivate (backend never hard-deletes). */
+  deactivateDepartment(id: string): Observable<void> {
+    return this.http
+      .delete<void>(`${this.baseUrl}/api/departments/${id}`)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Employees (create/update: ADMIN/HR; deactivate: ADMIN only). */
+  createEmployee(body: EmployeeRequest): Observable<Employee> {
+    return this.http
+      .post<Employee>(`${this.baseUrl}/api/employees`, body)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  updateEmployee(id: string, body: EmployeeRequest): Observable<Employee> {
+    return this.http
+      .put<Employee>(`${this.baseUrl}/api/employees/${id}`, body)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Soft-deactivate (backend never hard-deletes). */
+  deactivateEmployee(id: string): Observable<void> {
+    return this.http
+      .delete<void>(`${this.baseUrl}/api/employees/${id}`)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Audit trail (ADMIN only, read-only, server-paginated). */
+  searchAudit(query: AuditQuery): Observable<Page<AuditLogEntry>> {
+    let params = this.pageable(query.page, query.size, 'createdAt,desc');
+    if (query.action?.trim()) params = params.set('action', query.action.trim());
+    if (query.entityId?.trim()) params = params.set('entityId', query.entityId.trim());
+    if (query.actorId?.trim()) params = params.set('actorId', query.actorId.trim());
+    return this.http
+      .get<Page<AuditLogEntry>>(`${this.baseUrl}/api/audit`, { params })
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  getAuditEntry(id: string): Observable<AuditLogEntry> {
+    return this.http
+      .get<AuditLogEntry>(`${this.baseUrl}/api/audit/${id}`)
       .pipe(catchError((e) => throwError(() => e)));
   }
 }
