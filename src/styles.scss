@@ -17,7 +17,7 @@
 
   --text-primary: #10233a;
   --text-secondary: #45566b;
-  --text-muted: #6b7d90;
+  --text-muted: #576b80;
   --text-inverse: #f4f7fa;
   --text-disabled: #9aa7b5;
 
@@ -182,6 +182,14 @@ body {
 .st-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+/* Narrow viewports / high zoom: let button labels wrap instead of overflowing. */
+@media (max-width: 480px) {
+  .st-btn {
+    white-space: normal;
+    text-align: center;
+  }
 }
 
 .st-icon-btn {

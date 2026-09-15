@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ElementRef, inject } from '@angular/core';
 
 /** Accessible modal dialog with focus trap-lite (autofocus + Escape + labelled). */
 @Component({
@@ -11,6 +11,8 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
           class="st-dialog"
           role="dialog"
           aria-modal="true"
+          tabindex="-1"
+          #dialogPanel
           [attr.aria-labelledby]="labelledBy"
           (keydown.escape)="close.emit()"
         >
@@ -89,6 +91,18 @@ export class DialogComponent {
   @Input() showFooter = true;
   @Output() close = new EventEmitter<void>();
   readonly labelledBy = `st-dialog-${Math.floor(Math.random() * 100000)}`;
+  private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
+
+  ngOnChanges(): void {
+    // Move keyboard focus into the dialog when it opens (screen-reader + keyboard users).
+    if (this.open) {
+      queueMicrotask(() => {
+        this.host.nativeElement
+          .querySelector<HTMLElement>('.st-dialog')
+          ?.focus({ preventScroll: true });
+      });
+    }
+  }
 
   onBackdrop(event: MouseEvent): void {
     if (event.target === event.currentTarget) this.close.emit();

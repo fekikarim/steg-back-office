@@ -785,7 +785,10 @@ export class ApplicationDossierComponent implements OnInit {
     this.service.downloadDocument(item.document.id, item.document.restrictedAccess).subscribe({
       next: (blob) => {
         const url = URL.createObjectURL(blob);
-        window.open(url, '_blank', 'noopener');
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = item.document.originalFileName || `${item.document.reference}.pdf`;
+        anchor.click();
         window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
       },
       error: (e: unknown) => {

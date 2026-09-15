@@ -1,29 +1,8 @@
 import { Routes } from '@angular/router';
-import { ShellComponent } from './shell/shell.component';
-import { LoginComponent } from './features/login.component';
-import { DashboardComponent } from './features/dashboard.component';
-import { ApplicationsComponent } from './features/applications/application-queue.component';
-import { ApplicationDossierComponent } from './features/applications/application-dossier.component';
-import { ManualIntakeComponent } from './features/applications/manual-intake.component';
-import { CandidateListComponent } from './features/candidates/candidate-list.component';
-import { CandidateDetailComponent } from './features/candidates/candidate-detail.component';
-import { InternshipListComponent } from './features/internships/internship-list.component';
-import { InternshipDetailComponent } from './features/internships/internship-detail.component';
-import { InternshipCreateComponent } from './features/internships/internship-create.component';
-import { FinanceQueueComponent } from './features/finance/finance-queue.component';
-import { FinanceDetailComponent } from './features/finance/finance-detail.component';
-import { AdminWorkspaceComponent } from './features/admin/admin-workspace.component';
-import { AuditViewerComponent } from './features/admin/audit-viewer.component';
-import {
-  PlaceholderComponent,
-  ForbiddenComponent,
-  NotFoundComponent,
-} from './features/placeholder.component';
 import { authGuard, permissionGuard } from './core/guards';
 
 function placeholder(title: string, subtitle: string, body: string, crumbKey: string): object {
   return {
-    component: PlaceholderComponent,
     title,
     subtitle,
     body,
@@ -33,66 +12,105 @@ function placeholder(title: string, subtitle: string, body: string, crumbKey: st
 }
 
 export const routes: Routes = [
-  { path: 'login', component: LoginComponent, title: 'STEG Back Office — Login' },
-  { path: 'forbidden', component: ForbiddenComponent, title: 'STEG Back Office — Restricted' },
+  {
+    path: 'login',
+    loadComponent: () => import('./features/login.component').then((m) => m.LoginComponent),
+    title: 'STEG Back Office — Login',
+  },
+  {
+    path: 'forbidden',
+    loadComponent: () =>
+      import('./features/placeholder.component').then((m) => m.ForbiddenComponent),
+    title: 'STEG Back Office — Restricted',
+  },
   {
     path: '',
-    component: ShellComponent,
+    loadComponent: () => import('./shell/shell.component').then((m) => m.ShellComponent),
     canActivate: [authGuard()],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
-      { path: 'dashboard', component: DashboardComponent, title: 'STEG Back Office — Dashboard' },
+      {
+        path: 'dashboard',
+        loadComponent: () =>
+          import('./features/dashboard.component').then((m) => m.DashboardComponent),
+        title: 'STEG Back Office — Dashboard',
+      },
       {
         path: 'applications',
-        component: ApplicationsComponent,
+        loadComponent: () =>
+          import('./features/applications/application-queue.component').then(
+            (m) => m.ApplicationsComponent,
+          ),
         canActivate: [permissionGuard(['APPLICATION_VIEW'])],
         title: 'STEG Back Office — Applications',
       },
       {
         path: 'applications/new',
-        component: ManualIntakeComponent,
+        loadComponent: () =>
+          import('./features/applications/manual-intake.component').then(
+            (m) => m.ManualIntakeComponent,
+          ),
         canActivate: [permissionGuard(['APPLICATION_REVIEW'])],
         title: 'STEG Back Office — Manual intake',
       },
       {
         path: 'applications/:id',
-        component: ApplicationDossierComponent,
+        loadComponent: () =>
+          import('./features/applications/application-dossier.component').then(
+            (m) => m.ApplicationDossierComponent,
+          ),
         canActivate: [permissionGuard(['APPLICATION_VIEW'])],
         title: 'STEG Back Office — Application dossier',
       },
       {
         path: 'candidates',
-        component: CandidateListComponent,
+        loadComponent: () =>
+          import('./features/candidates/candidate-list.component').then(
+            (m) => m.CandidateListComponent,
+          ),
         canActivate: [permissionGuard(['CANDIDATE_VIEW'])],
         title: 'STEG Back Office — Candidates',
       },
       {
         path: 'candidates/:id',
-        component: CandidateDetailComponent,
+        loadComponent: () =>
+          import('./features/candidates/candidate-detail.component').then(
+            (m) => m.CandidateDetailComponent,
+          ),
         canActivate: [permissionGuard(['CANDIDATE_VIEW'])],
         title: 'STEG Back Office — Candidate',
       },
       {
         path: 'internships',
-        component: InternshipListComponent,
+        loadComponent: () =>
+          import('./features/internships/internship-list.component').then(
+            (m) => m.InternshipListComponent,
+          ),
         canActivate: [permissionGuard(['INTERNSHIP_VIEW'])],
         title: 'STEG Back Office — Internships',
       },
       {
         path: 'internships/new',
-        component: InternshipCreateComponent,
+        loadComponent: () =>
+          import('./features/internships/internship-create.component').then(
+            (m) => m.InternshipCreateComponent,
+          ),
         canActivate: [permissionGuard(['INTERNSHIP_ASSIGN'])],
         title: 'STEG Back Office — New internship',
       },
       {
         path: 'internships/:id',
-        component: InternshipDetailComponent,
+        loadComponent: () =>
+          import('./features/internships/internship-detail.component').then(
+            (m) => m.InternshipDetailComponent,
+          ),
         canActivate: [permissionGuard(['INTERNSHIP_VIEW'])],
         title: 'STEG Back Office — Internship',
       },
       {
         path: 'assignments',
-        component: PlaceholderComponent,
+        loadComponent: () =>
+          import('./features/placeholder.component').then((m) => m.PlaceholderComponent),
         canActivate: [permissionGuard(['INTERNSHIP_ASSIGN'])],
         data: placeholder(
           'Supervisors & assignments',
@@ -104,7 +122,8 @@ export const routes: Routes = [
       },
       {
         path: 'documents',
-        component: PlaceholderComponent,
+        loadComponent: () =>
+          import('./features/placeholder.component').then((m) => m.PlaceholderComponent),
         canActivate: [permissionGuard(['DOCUMENT_VIEW'])],
         data: placeholder(
           'Documents',
@@ -116,19 +135,24 @@ export const routes: Routes = [
       },
       {
         path: 'finance',
-        component: FinanceQueueComponent,
+        loadComponent: () =>
+          import('./features/finance/finance-queue.component').then((m) => m.FinanceQueueComponent),
         canActivate: [permissionGuard(['FINANCE_CASE_VIEW'])],
         title: 'STEG Back Office — Finance',
       },
       {
         path: 'finance/:id',
-        component: FinanceDetailComponent,
+        loadComponent: () =>
+          import('./features/finance/finance-detail.component').then(
+            (m) => m.FinanceDetailComponent,
+          ),
         canActivate: [permissionGuard(['FINANCE_CASE_VIEW'])],
         title: 'STEG Back Office — Finance case',
       },
       {
         path: 'reports',
-        component: PlaceholderComponent,
+        loadComponent: () =>
+          import('./features/placeholder.component').then((m) => m.PlaceholderComponent),
         canActivate: [permissionGuard(['REPORT_VIEW'])],
         data: placeholder(
           'Reports',
@@ -140,7 +164,9 @@ export const routes: Routes = [
       },
       {
         path: 'notifications',
-        component: PlaceholderComponent,
+        loadComponent: () =>
+          import('./features/placeholder.component').then((m) => m.PlaceholderComponent),
+        canActivate: [permissionGuard([])],
         data: placeholder(
           'Notifications',
           'Workflow events',
@@ -151,17 +177,26 @@ export const routes: Routes = [
       },
       {
         path: 'audit',
-        component: AuditViewerComponent,
+        loadComponent: () =>
+          import('./features/admin/audit-viewer.component').then((m) => m.AuditViewerComponent),
         canActivate: [permissionGuard(['AUDIT_VIEW'])],
         title: 'STEG Back Office — Audit',
       },
       {
         path: 'admin',
-        component: AdminWorkspaceComponent,
+        loadComponent: () =>
+          import('./features/admin/admin-workspace.component').then(
+            (m) => m.AdminWorkspaceComponent,
+          ),
         canActivate: [permissionGuard(['USER_MANAGE'])],
         title: 'STEG Back Office — Administration',
       },
     ],
   },
-  { path: '**', component: NotFoundComponent, title: 'STEG Back Office — Not found' },
+  {
+    path: '**',
+    loadComponent: () =>
+      import('./features/placeholder.component').then((m) => m.NotFoundComponent),
+    title: 'STEG Back Office — Not found',
+  },
 ];

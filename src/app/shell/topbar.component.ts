@@ -109,6 +109,8 @@ import type { SupportedLocale } from '../core/dictionaries';
         display: flex;
         align-items: center;
         gap: 0.6rem;
+        row-gap: 0.4rem;
+        flex-wrap: wrap;
         padding: 0.55rem 1rem;
         background: var(--bg-surface);
         border-block-end: 1px solid var(--border-subtle);

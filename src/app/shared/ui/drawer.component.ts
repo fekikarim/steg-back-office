@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ElementRef, inject } from '@angular/core';
 
 /** Side drawer: detail views on desktop, full sheet on mobile. Correct side in RTL via logical inset. */
 @Component({
@@ -11,6 +11,7 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
           class="st-drawer"
           role="dialog"
           aria-modal="true"
+          tabindex="-1"
           [attr.aria-label]="title"
           (keydown.escape)="close.emit()"
         >
@@ -79,6 +80,17 @@ export class DrawerComponent {
   @Input() open = false;
   @Input() title = '';
   @Output() close = new EventEmitter<void>();
+  private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
+
+  ngOnChanges(): void {
+    if (this.open) {
+      queueMicrotask(() => {
+        this.host.nativeElement
+          .querySelector<HTMLElement>('.st-drawer')
+          ?.focus({ preventScroll: true });
+      });
+    }
+  }
 
   onBackdrop(event: MouseEvent): void {
     if (event.target === event.currentTarget) this.close.emit();

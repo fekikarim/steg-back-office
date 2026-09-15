@@ -68,6 +68,20 @@ const RESTRICTED_DOC = {
   createdAt: '2026-06-01T00:00:00Z',
 } as DossierBundle['documents'][number];
 
+const NORMAL_DOC = {
+  ...RESTRICTED_DOC,
+  id: 'ad-2',
+  document: {
+    ...RESTRICTED_DOC.document,
+    id: 'd-2',
+    reference: 'DOC-2',
+    type: 'CV',
+    restrictedAccess: false,
+    originalFileName: 'cv.pdf',
+    mimeType: 'application/pdf',
+  },
+} as DossierBundle['documents'][number];
+
 describe('ApplicationDossierComponent', () => {
   async function setup(role: 'HR' | 'SUPERVISOR', snap: DossierBundle) {
     const calls: { method: string; args: unknown[] }[] = [];
@@ -151,6 +165,32 @@ describe('ApplicationDossierComponent', () => {
     const buttons = [...fixture.nativeElement.querySelectorAll('.st-docrow__actions button')];
     const download = buttons.find((b: HTMLButtonElement) => b.textContent?.includes('Télécharger'));
     expect(download?.disabled).toBe(true);
+  });
+
+  it('downloads with the original filename (not a blob-UUID name)', async () => {
+    const { fixture } = await setup('HR', bundle({ documents: [NORMAL_DOC] }));
+    const component = fixture.componentInstance;
+    const clicked: HTMLAnchorElement[] = [];
+    const origCreate = document.createElement.bind(document);
+    const createSpy = (tag: string, options?: ElementCreationOptions): HTMLElement => {
+      const el = origCreate(tag, options);
+      if (tag === 'a') {
+        const origClick = el.click.bind(el);
+        el.click = (): void => {
+          clicked.push(el as HTMLAnchorElement);
+          origClick();
+        };
+      }
+      return el;
+    };
+    document.createElement = createSpy as typeof document.createElement;
+    try {
+      component.download(NORMAL_DOC, false);
+      expect(clicked.length).toBe(1);
+      expect(clicked[0]?.download).toBe('cv.pdf');
+    } finally {
+      document.createElement = origCreate;
+    }
   });
 
   it('renders the real workflow timeline and masks CIN by default', async () => {

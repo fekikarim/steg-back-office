@@ -9,7 +9,6 @@ import { ApiClient } from '../../core/api-client.service';
 import { InternshipService } from './internship.service';
 import { ToastService } from '../../shared/ui/toast.service';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
-import { BadgeComponent } from '../../shared/ui/badge.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { AlertComponent } from '../../shared/ui/alert.component';
 import { TabsComponent } from '../../shared/ui/tabs.component';
@@ -29,7 +28,6 @@ import type { ApplicationDetail, CandidateSummary } from '../../core/api-models'
     RouterLink,
     FormsModule,
     PageHeaderComponent,
-    BadgeComponent,
     SkeletonComponent,
     AlertComponent,
     TabsComponent,

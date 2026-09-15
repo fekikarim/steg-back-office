@@ -1,0 +1,147 @@
+# Back Office — QA Report (Phase C7)
+
+Date: 2026-09-15 · App: `steg-back-office` (Angular 22.1.6, standalone, strict TS)
+Scope: full quality gate — visual, responsive, RTL, accessibility, performance,
+security UX, E2E. Backend live at `http://localhost:8080` (auth-gated, 401
+verified); E2E runs hermetically against a stateful mocked API.
+
+## 1. Gate results (evidence)
+
+| Gate | Command | Result |
+|---|---|---|
+| Lint + typecheck | `npm run lint` (prettier + `tsc` app & spec) | ✅ pass |
+| Unit/component | `npm test` (vitest) | ✅ 25 files / 124 tests pass |
+| Production build | `npm run build` | ✅ pass, 0 warnings |
+| E2E chromium | `npx playwright test --project=chromium` | ✅ 16/16 pass |
+| E2E mobile (Pixel 7) | `npx playwright test --project=mobile` | ✅ 3/3 pass |
+| i18n parity | key audit script | ✅ 458 keys × fr/en/ar, 0 missing |
+
+Build output (production): initial `main` 88 kB raw / 22 kB transfer
+(total initial 371 kB raw / 98 kB transfer); 16+ lazy chunks per route
+(e.g. `internship-detail` 8.7 kB, `finance-detail` 6.9 kB transfer).
+All feature routes use `loadComponent` (verified in `app.routes.ts` and in
+the build's "Lazy chunk files" list).
+
+## 2. Visual audit — formal institutional appearance ✅
+
+- Palette restricted to STEG tokens (`--brand-primary #0b61a0`, navy,
+  neutrals; red reserved for danger/restricted states). No gradients,
+  no decorative animation (only skeleton shimmer, disabled under
+  `prefers-reduced-motion`), no SaaS gimmicks.
+- Tables, buttons (`.st-btn` variants), badges and `st-icon` set are shared
+  components reused on every screen — verified by import audit.
+- Iconography: single inline-SVG set; added `sparkles` (AI), `upload`,
+  `print` glyphs in the same stroke style. Only text glyph is `✕` on
+  labelled close buttons (accessible name present).
+- Hierarchy: `st-page-header` (title + actions) + breadcrumbs + tabs on
+  every workspace; section cards with labelled headings.
+
+## 3. Responsive audit ✅ (mobile 412px, tablet 768px, desktop 1280px+)
+
+- Sidebar → drawer under 1023 px with scrim + `aria-hidden` management;
+  topbar compresses (search/meta hidden ≤767 px) and now wraps instead of
+  overflowing (fixed in C7).
+- Tables: priority columns hide progressively; drawers become full sheets;
+  dialogs fit small viewports (E2E-asserted bounding boxes).
+- **Found & fixed:** 200 % zoom on mobile produced 350 px horizontal
+  overflow (nowrap `.st-btn` + non-wrapping `.st-top`). Fixed with
+  button-label wrapping ≤480 px and topbar `flex-wrap`; E2E asserts
+  zero page-level overflow at 200 % zoom.
+
+## 4. RTL audit (fr/en/ar, full pages) ✅
+
+- No physical CSS (`margin-left`, `left:`, …) anywhere in app code;
+  logical properties throughout; `document.dir` switches `ltr/rtl` with
+  `lang`; Arabic line-height 1.7; `dir="auto"` on names, `dir="ltr"` on
+  references/emails/UUIDs/tokens.
+- Directional icons mirror via `[dir='rtl'] .st-icon--mirror`
+  (pagination chevrons verified); sidebar docks physical-right in RTL
+  (E2E asserts bounding box against the viewport edge).
+- **Found & fixed:** 94 Arabic keys missing (C2/C3-era screens fell back
+  to French). All 458 keys now translated; parity script gates regressions.
+
+## 5. Accessibility (WCAG 2.2 AA-oriented) ✅
+
+- Keyboard: skip link `#st-content`, native controls, roving tabs,
+  Escape-closes dialogs/drawers, Enter submits, E2E keyboard-only flow
+  (login → review → dialog → Escape) passes.
+- **Found & fixed:** dialogs/drawers never received focus on open.
+  `st-dialog`/`st-drawer` now move focus to the panel (`tabindex="-1"`,
+  `preventScroll`); keyboard E2E asserts `toBeFocused()`.
+- Semantics: `th scope="col"`, tablist/tab/tabpanel roles, `aria-modal`,
+  labelled dialogs, `aria-live` toasts/pagination, `role="alert"` errors,
+  decorative bars `aria-hidden` with text equivalents (no color-only status
+  — every badge pairs color with text).
+- Contrast (measured): primary/secondary/inverse ≥ 6.5:1 both themes.
+  **Found & fixed:** `--text-muted` was 4.23:1 → darkened to `#576b80`
+  (5.5:1 on white). Dark-theme muted `#8fa1b3` measures 5.8:1.
+- Zoom 200 % verified (see §3); touch targets use 2.5–2.75 rem min sizes.
+
+## 6. Performance ✅
+
+- Server-side pagination + sorting everywhere the backend supports it
+  (finance queue, audit, notifications); page size capped (default 20,
+  max 100).
+- Bounded joins only: finance queue enriches ≤ page-size rows
+  (≤40 small requests, failures isolated per row); internship list joins
+  assignment histories the same way. Documented in code; no unbounded
+  fan-out.
+- Lazy routes (see §1); charts are CSS-only distribution bars
+  (no chart library, no JS cost, theme-adaptive).
+- No `console.log`/debug code in app sources (audit-clean).
+
+## 7. Security UX ✅
+
+- Every shell route carries `authGuard` + `permissionGuard([...])`
+  (notifications route gained its guard in C7); nav hides unauthorized
+  sections; action buttons are permission/role-gated
+  (e.g. finance approve requires `role === 'FINANCE'`, matching the
+  backend's `hasRole('FINANCE')`; ADMIN correctly sees no decision buttons).
+- 401 → login, 403 → forbidden page + user-safe toast via the central
+  interceptor; no secrets or stack traces in messages; tokens in-memory
+  only (demo IAM — see §9).
+- Restricted (CIN) documents: sensitive badge, disabled actions without
+  `DOCUMENT_VIEW_RESTRICTED`, guarded download endpoints, audited-attempt
+  messaging. E2E covers HR-denied, ADMIN-allowed, DIRECTOR-denied paths.
+- No client-side trust: guards/states are UX convenience; every mutation
+  is a backend call with server confirmation (verified per-phase).
+
+## 8. E2E evidence (`e2e/`, Playwright 1.63, Chromium + Pixel 7)
+
+Hermetic stateful mock (`e2e/mock-backend.ts`, shapes per `api-models.ts`):
+- `auth.spec.ts` — redirect when unauthenticated, demo login,SUPERVISOR→`/finance` and HR→`/admin` denials.
+- `lifecycle.spec.ts` — login → HR review → accept → create internship →
+  activate → assign supervisor → complete → certificate → FINANCE approve
+  (receipt-consequence confirm) → receipt `PAY-2026-000004` download;
+  plus reject-requires-reason flow.
+- `roles.spec.ts` — nav hiding + route denials + ADMIN read-only finance.
+- `restricted-docs.spec.ts` — badge/disabled states, guarded-endpoint
+  download, filename correctness (`cv.pdf`, not a blob-UUID name).
+- `rtl.spec.ts`, `responsive.spec.ts`, `keyboard.spec.ts` — see §3–§5.
+- Result: **19/19 pass**. Live-backend variant: backend is up and
+  auth-gated (401 on `/api/finance-cases`, `/api/audit`); full live runs
+  await seeded staff accounts (see §9).
+
+## 9. Fixes applied in this phase
+
+1. Lazy `loadComponent` routes (+ notifications guard).
+2. `--text-muted` contrast 4.23 → 5.5:1.
+3. 94 missing Arabic translations (parity now 458×3).
+4. Dialog/drawer initial focus management.
+5. Dossier "Download" actually downloaded (was `window.open` preview with
+   a blob-UUID filename) + unit test lock-in.
+6. Topbar wrap + button-label wrap (200 % zoom overflow).
+7. Removed dead `BadgeComponent` imports (audit-viewer, internship-create)
+   and an obsolete `?? ''` (build warnings → zero).
+
+## 10. Known limitations (not defects)
+
+- **Demo IAM**: login is shape-validating demo sign-in; real JWT wiring is
+  pending backend IAM exposure. Tokens are in-memory only; backend stays
+  the authorization authority (E2E mocks the API contract, not auth).
+- **Placeholders remain** for assignments hub, documents hub, reports and
+  notifications (routes/guards/nav real; out-of-scope phases).
+- **Seeded E2E**: hermetic mocks; run against a seeded backend before
+  production sign-off (`POST /api/auth/login` staff accounts required).
+- Manual screen-reader pass (NVDA/VoiceOver) and device lab recommended
+  before release; automated checks above are necessary but not sufficient.

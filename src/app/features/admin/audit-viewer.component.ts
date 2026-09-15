@@ -5,7 +5,6 @@ import { BreadcrumbService } from '../../core/breadcrumb.service';
 import { ToastService } from '../../shared/ui/toast.service';
 import { AdminService, isForbidden, truncateSnapshot } from './admin.service';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
-import { BadgeComponent } from '../../shared/ui/badge.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { EmptyStateComponent, ErrorStateComponent } from '../../shared/ui/states.component';
 import { AlertComponent } from '../../shared/ui/alert.component';
@@ -27,7 +26,6 @@ import type { AuditLogEntry } from '../../core/api-models';
   imports: [
     FormsModule,
     PageHeaderComponent,
-    BadgeComponent,
     SkeletonComponent,
     EmptyStateComponent,
     ErrorStateComponent,

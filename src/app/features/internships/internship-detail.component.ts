@@ -298,7 +298,7 @@ import { INTERNSHIP_UPLOAD_TYPES, REQUIRED_DOSSIER_TYPES } from '../../core/api-
                       <td dir="auto">{{ a.supervisorName }}</td>
                       <td dir="auto">{{ a.departmentName }}</td>
                       <td><st-badge [label]="a.status" [tone]="assignmentTone(a.status)" /></td>
-                      <td dir="ltr">{{ (a.assignedAt ?? '').slice(0, 10) }}</td>
+                      <td dir="ltr">{{ a.assignedAt.slice(0, 10) }}</td>
                     </tr>
                   }
                 </tbody>
