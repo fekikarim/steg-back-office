@@ -100,6 +100,15 @@ type ReasonKind = 'reject' | 'correct' | 'accept-note' | 'verify';
             {{ i18n.t('dossier.reject') }}
           </button>
         }
+        @if (canCreateInternship() && dossier.application.status === 'ACCEPTED') {
+          <a
+            [routerLink]="['/internships/new']"
+            [queryParams]="{ applicationId: dossier.application.id }"
+            class="st-btn st-btn--primary"
+          >
+            {{ i18n.t('dossier.createInternship') }}
+          </a>
+        }
       </st-page-header>
 
       <p class="st-flags">
@@ -611,6 +620,10 @@ export class ApplicationDossierComponent implements OnInit {
 
   canAct(): boolean {
     return this.auth.hasPermission('APPLICATION_REVIEW');
+  }
+
+  canCreateInternship(): boolean {
+    return this.auth.hasPermission('INTERNSHIP_ASSIGN');
   }
 
   canBeginReview(status: string): boolean {

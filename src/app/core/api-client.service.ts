@@ -22,6 +22,16 @@ import type {
   University,
   ManualApplicationFields,
   ManualApplicationResult,
+  InternshipDetail,
+  InternshipClassification,
+  InternshipAssignment,
+  InternshipAssignmentRequest,
+  InternshipCreateFromApplicationRequest,
+  InternshipCreateManualRequest,
+  InternshipUpdateDatesRequest,
+  Department,
+  Employee,
+  CertificateInfo,
 } from './api-models';
 
 /**
@@ -243,6 +253,135 @@ export class ApiClient {
     const segment = restricted ? 'download-restricted' : 'download';
     return this.http
       .get(`${this.baseUrl}/api/documents/${documentId}/${segment}`, { responseType: 'blob' })
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /* -------- Phase C3 — internship lifecycle & assignment -------- */
+
+  /** Staff internship list (ADMIN/HR/SUPERVISOR). Backend returns the full array. */
+  listInternships(): Observable<InternshipDetail[]> {
+    return this.http
+      .get<InternshipDetail[]>(`${this.baseUrl}/api/internships`)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  getInternship(id: string): Observable<InternshipDetail> {
+    return this.http
+      .get<InternshipDetail>(`${this.baseUrl}/api/internships/${id}`)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Create from an ACCEPTED application (ADMIN/HR). Source data copied backend-side. */
+  createInternshipFromApplication(
+    body: InternshipCreateFromApplicationRequest,
+  ): Observable<InternshipDetail> {
+    return this.http
+      .post<InternshipDetail>(`${this.baseUrl}/api/internships/from-application`, body)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Manual creation where the backend permits it (ADMIN/HR). */
+  createManualInternship(body: InternshipCreateManualRequest): Observable<InternshipDetail> {
+    return this.http
+      .post<InternshipDetail>(`${this.baseUrl}/api/internships/manual`, body)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Date update triggers backend reclassification (ADMIN/HR). */
+  updateInternshipDates(
+    id: string,
+    body: InternshipUpdateDatesRequest,
+  ): Observable<InternshipDetail> {
+    return this.http
+      .put<InternshipDetail>(`${this.baseUrl}/api/internships/${id}/dates`, body)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  cancelInternship(id: string): Observable<InternshipDetail> {
+    return this.http
+      .post<InternshipDetail>(`${this.baseUrl}/api/internships/${id}/cancel`, {})
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Assignment history (ADMIN/HR/SUPERVISOR). */
+  listAssignments(internshipId: string): Observable<InternshipAssignment[]> {
+    return this.http
+      .get<InternshipAssignment[]>(`${this.baseUrl}/api/internships/${internshipId}/assignments`)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /**
+   * Assign/reassign (ADMIN/HR). Backend atomically ends the current ACTIVE
+   * assignment and activates the new one; the one-active rule is enforced
+   * server-side (409 on concurrent reassignment).
+   */
+  assignInternship(
+    internshipId: string,
+    body: InternshipAssignmentRequest,
+  ): Observable<InternshipAssignment> {
+    return this.http
+      .post<InternshipAssignment>(
+        `${this.baseUrl}/api/internships/${internshipId}/assignments`,
+        body,
+      )
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Read-only classification transparency view. */
+  getClassification(internshipId: string): Observable<InternshipClassification> {
+    return this.http
+      .get<InternshipClassification>(
+        `${this.baseUrl}/api/internships/${internshipId}/classification`,
+      )
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Internship lifecycle transition (ADMIN/HR): PLANNED → ACTIVE → COMPLETED. */
+  executeInternshipTransition(
+    internshipId: string,
+    body: WorkflowTransitionRequest,
+  ): Observable<WorkflowActionResponse> {
+    return this.http
+      .post<WorkflowActionResponse>(
+        `${this.baseUrl}/api/internships/${internshipId}/workflow/actions`,
+        body,
+      )
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  getInternshipWorkflow(internshipId: string): Observable<WorkflowInstanceResponse> {
+    return this.http
+      .get<WorkflowInstanceResponse>(`${this.baseUrl}/api/internships/${internshipId}/workflow`)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /**
+   * Certificate generation entry point (ADMIN/HR/active supervisor).
+   * Backend enforces COMPLETED + supervisor eligibility; no request body —
+   * the generation date is captured server-side.
+   */
+  generateCertificate(internshipId: string): Observable<CertificateInfo> {
+    return this.http
+      .post<CertificateInfo>(`${this.baseUrl}/api/internships/${internshipId}/certificates`, {})
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  downloadCertificate(certificateId: string): Observable<Blob> {
+    return this.http
+      .get(`${this.baseUrl}/api/certificates/${certificateId}`, { responseType: 'blob' })
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Departments/employees (ADMIN/HR) — reference data for the assign dialog. */
+  listDepartments(): Observable<Department[]> {
+    return this.http
+      .get<Department[]>(`${this.baseUrl}/api/departments`)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  listEmployees(): Observable<Employee[]> {
+    return this.http
+      .get<Employee[]>(`${this.baseUrl}/api/employees`)
       .pipe(catchError((e) => throwError(() => e)));
   }
 }

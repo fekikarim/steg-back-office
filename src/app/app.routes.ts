@@ -7,6 +7,9 @@ import { ApplicationDossierComponent } from './features/applications/application
 import { ManualIntakeComponent } from './features/applications/manual-intake.component';
 import { CandidateListComponent } from './features/candidates/candidate-list.component';
 import { CandidateDetailComponent } from './features/candidates/candidate-detail.component';
+import { InternshipListComponent } from './features/internships/internship-list.component';
+import { InternshipDetailComponent } from './features/internships/internship-detail.component';
+import { InternshipCreateComponent } from './features/internships/internship-create.component';
 import {
   PlaceholderComponent,
   ForbiddenComponent,
@@ -67,15 +70,21 @@ export const routes: Routes = [
       },
       {
         path: 'internships',
-        component: PlaceholderComponent,
+        component: InternshipListComponent,
         canActivate: [permissionGuard(['INTERNSHIP_VIEW'])],
-        data: placeholder(
-          'Internships',
-          'Backend-derived classification · Phase C3',
-          'Internship lifecycle lands in Phase C3.',
-          'nav.internships',
-        ),
         title: 'STEG Back Office — Internships',
+      },
+      {
+        path: 'internships/new',
+        component: InternshipCreateComponent,
+        canActivate: [permissionGuard(['INTERNSHIP_ASSIGN'])],
+        title: 'STEG Back Office — New internship',
+      },
+      {
+        path: 'internships/:id',
+        component: InternshipDetailComponent,
+        canActivate: [permissionGuard(['INTERNSHIP_VIEW'])],
+        title: 'STEG Back Office — Internship',
       },
       {
         path: 'assignments',

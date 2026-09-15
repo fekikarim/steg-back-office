@@ -330,6 +330,150 @@ export interface ManualApplicationResult {
   readonly trackingToken: string;
 }
 
+/* ------------------------------------------------------------------ */
+/* Phase C3 — internship lifecycle & assignment contracts.             */
+/* Mirrors steg-backend/docs/openapi.json. All classification,         */
+/* eligibility and transition rules live backend-side; these are       */
+/* transport types only.                                               */
+/* ------------------------------------------------------------------ */
+
+export type InternshipRequirement = 'OBLIGATOIRE' | 'OPTIONAL';
+
+/** GET /api/internships, GET /api/internships/{id}. */
+export interface InternshipDetail {
+  readonly id: string;
+  readonly reference: string;
+  readonly startDate: string;
+  readonly endDate: string;
+  readonly status: InternshipStatus;
+  /** Backend-computed — read-only, never set by the client. */
+  readonly type: InternshipType;
+  /** Backend-computed — read-only, never set by the client. */
+  readonly requirement: InternshipRequirement;
+  /** Backend-computed payment eligibility flag — read-only. */
+  readonly paymentEligible: boolean;
+  readonly subject: string;
+  readonly academicLevel: string;
+  readonly candidateId: string;
+  readonly candidateFullName: string;
+  readonly applicationId: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly version: number;
+}
+
+/** GET /api/internships/{id}/classification — read-only transparency view. */
+export interface InternshipClassification {
+  readonly internshipId: string;
+  readonly reference: string;
+  readonly startDate: string;
+  readonly endDate: string;
+  readonly type: InternshipType;
+  readonly requirement: InternshipRequirement;
+  readonly paymentEligible: boolean;
+  readonly durationInDays: number;
+  readonly appliedRuleDescription: string;
+}
+
+export type AssignmentStatus = 'PLANNED' | 'ACTIVE' | 'ENDED' | 'REASSIGNED' | 'CANCELLED';
+
+/** GET/POST /api/internships/{id}/assignments. */
+export interface InternshipAssignment {
+  readonly id: string;
+  readonly internshipId: string;
+  readonly departmentId: string;
+  readonly departmentName: string;
+  readonly supervisorId: string;
+  readonly supervisorName: string;
+  readonly assignedById: string;
+  readonly assignedByName: string;
+  readonly assignedAt: string;
+  readonly startDate: string | null;
+  readonly endDate: string | null;
+  readonly status: AssignmentStatus;
+  readonly assignmentReason: string | null;
+  readonly endedAt: string | null;
+  readonly createdAt: string;
+  readonly version: number;
+}
+
+export interface InternshipAssignmentRequest {
+  readonly departmentId: string;
+  readonly supervisorId: string;
+  readonly startDate?: string;
+  readonly endDate?: string;
+  readonly assignmentReason?: string;
+}
+
+/** POST /api/internships/from-application. */
+export interface InternshipCreateFromApplicationRequest {
+  readonly applicationId: string;
+  /**
+   * Explicit flag for observation internships (true = OBLIGATOIRE).
+   * Null/absent conservatively defaults to OPTIONAL backend-side.
+   */
+  readonly observationObligatoire?: boolean | null;
+}
+
+/** POST /api/internships/manual. */
+export interface InternshipCreateManualRequest {
+  readonly candidateId: string;
+  readonly startDate: string;
+  readonly endDate: string;
+  readonly subject: string;
+  readonly academicLevel?: string;
+  readonly observationObligatoire?: boolean | null;
+}
+
+/** PUT /api/internships/{id}/dates — backend recomputes classification. */
+export interface InternshipUpdateDatesRequest {
+  readonly startDate: string;
+  readonly endDate: string;
+  readonly observationObligatoire?: boolean | null;
+}
+
+export interface Department {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+  readonly description: string | null;
+  readonly active: boolean;
+  readonly parentDepartmentId: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly version: number;
+}
+
+export interface Employee {
+  readonly id: string;
+  readonly employeeNumber: string;
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly phoneNumber: string | null;
+  readonly position: string | null;
+  readonly hireDate: string | null;
+  readonly active: boolean;
+  readonly departmentId: string | null;
+  readonly departmentName: string | null;
+  readonly userId: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly version: number;
+}
+
+/** POST /api/internships/{id}/certificates response (metadata; PDF via download). */
+export interface CertificateInfo {
+  readonly id: string;
+  readonly reference: string;
+  readonly status: 'GENERATED' | 'ISSUED' | 'REVOKED';
+  readonly templateCode: string;
+  readonly templateVersion: number;
+  readonly internshipId: string;
+  readonly internshipReference: string;
+  readonly generatedAt: string;
+  readonly issueDate: string;
+}
+
 /** Backend error → user-safe message mapping (no stack traces, no secrets). */
 export function toUserMessage(error: unknown): string {
   if (typeof error === 'object' && error !== null && 'error' in error) {
