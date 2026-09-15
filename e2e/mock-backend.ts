@@ -187,6 +187,81 @@ export async function installMockApi(page: Page, state: MockState): Promise<void
     const ok = (json: unknown, status = 200): Promise<void> =>
       route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(json) });
 
+    // --- auth (real backend flow: JWT with role) ---
+    if (method === 'POST' && path === '/auth/login') {
+      const body = route.request().postDataJSON() as { email?: string; password?: string };
+      const email = (body?.email ?? '').toLowerCase();
+      const roleMap: Record<string, string> = {
+        'rh@steg.tn': 'HR',
+        'sup@steg.tn': 'SUPERVISOR',
+        'supervisor.steg@steg.tn': 'SUPERVISOR',
+        'finance@steg.tn': 'FINANCE',
+        'finance.steg@steg.tn': 'FINANCE',
+        'admin@steg.tn': 'ADMIN',
+        'dir@steg.tn': 'DIRECTOR',
+        'candidate@steg.tn': 'CANDIDATE',
+      };
+      const role = roleMap[email];
+      if (!role) {
+        return route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 401,
+            error: 'Unauthorized',
+            message: 'Incorrect email or password.',
+            path: '/api/auth/login',
+          }),
+        });
+      }
+      const payload = {
+        sub: `user-${role.toLowerCase()}`,
+        email,
+        roles: [`ROLE_${role}`],
+        exp: Math.floor(Date.now() / 1000) + 900,
+      };
+      const b64 = (obj: unknown): string =>
+        Buffer.from(JSON.stringify(obj)).toString('base64url');
+      const mockJwt = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64(payload)}.sig`;
+      return ok({
+        accessToken: mockJwt,
+        refreshToken: `mock-refresh-${role.toLowerCase()}`,
+        expiresIn: 900,
+        tokenType: 'Bearer',
+      });
+    }
+    if (method === 'POST' && path === '/auth/refresh') {
+      const body = route.request().postDataJSON() as { refreshToken?: string };
+      const rt = body?.refreshToken ?? '';
+      const role = rt.includes('finance')
+        ? 'FINANCE'
+        : rt.includes('supervisor') || rt.includes('sup')
+          ? 'SUPERVISOR'
+          : rt.includes('admin')
+            ? 'ADMIN'
+            : rt.includes('hr')
+              ? 'HR'
+              : 'HR';
+      const payload = {
+        sub: `user-${role.toLowerCase()}`,
+        email: `${role.toLowerCase()}@steg.tn`,
+        roles: [`ROLE_${role}`],
+        exp: Math.floor(Date.now() / 1000) + 900,
+      };
+      const b64 = (obj: unknown): string =>
+        Buffer.from(JSON.stringify(obj)).toString('base64url');
+      const mockJwt = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64(payload)}.sig`;
+      return ok({
+        accessToken: mockJwt,
+        refreshToken: `mock-refresh-${role.toLowerCase()}-new`,
+        expiresIn: 900,
+        tokenType: 'Bearer',
+      });
+    }
+    if (method === 'POST' && (path === '/auth/logout' || path === '/auth/logout-all')) {
+      return route.fulfill({ status: 204, body: '' });
+    }
+
     // --- reporting aggregates (dashboard) ---
     if (method === 'GET' && path === '/reports/applications-by-status')
       return ok(
@@ -685,16 +760,15 @@ export async function installMockApi(page: Page, state: MockState): Promise<void
   });
 }
 
-/** Demo login through the real login form (demo IAM: email + password + role). */
+/** Real login through the backend-synced form (email + password only; role comes from JWT). */
 export async function loginAs(
   page: Page,
   email: string,
-  role: 'HR' | 'SUPERVISOR' | 'FINANCE' | 'DIRECTOR' | 'ADMIN',
+  _role: 'HR' | 'SUPERVISOR' | 'FINANCE' | 'DIRECTOR' | 'ADMIN',
 ): Promise<void> {
   await page.goto('/login');
   await page.getByLabel(/e-mail|email/i).fill(email);
   await page.getByLabel(/mot de passe|password/i).fill('Password123!');
-  await page.getByLabel(/rôle|role/i).selectOption(role);
   await page.getByRole('button', { name: /se connecter|sign in/i }).click();
   await page.waitForURL('**/dashboard');
 }

@@ -1,15 +1,17 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, OnDestroy, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { I18nService } from '../../core/i18n.service';
+import { RealtimeService } from '../../core/realtime.service';
 import { BreadcrumbService } from '../../core/breadcrumb.service';
 import { ApiClient } from '../../core/api-client.service';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { LiveStatusComponent } from '../../shared/ui/live-status.component';
 import { DataTableComponent, type SortState } from '../../shared/ui/data-table.component';
 import { PaginationComponent } from '../../shared/ui/pagination.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { EmptyStateComponent, ErrorStateComponent } from '../../shared/ui/states.component';
-import { StIconComponent } from '../../shared/ui/icon.component';
 import type { CandidateSummary } from '../../core/api-models';
 
 /**
@@ -20,21 +22,19 @@ import type { CandidateSummary } from '../../core/api-models';
   selector: 'st-candidate-list',
   standalone: true,
   imports: [
-    RouterLink,
     FormsModule,
+    RouterLink,
+    LiveStatusComponent,
     PageHeaderComponent,
     DataTableComponent,
     PaginationComponent,
     SkeletonComponent,
     EmptyStateComponent,
     ErrorStateComponent,
-    StIconComponent,
   ],
   template: `
     <st-page-header [title]="i18n.t('candidates.title')" [subtitle]="i18n.t('candidates.subtitle')">
-      <button type="button" class="st-btn st-btn--secondary" (click)="load()">
-        <st-icon name="refresh" [size]="15" /> {{ i18n.t('table.refresh') }}
-      </button>
+      <st-live-status />
     </st-page-header>
 
     <section class="st-filters" [attr.aria-label]="i18n.t('table.filters')">
@@ -134,10 +134,12 @@ import type { CandidateSummary } from '../../core/api-models';
     `,
   ],
 })
-export class CandidateListComponent implements OnInit {
+export class CandidateListComponent implements OnInit, OnDestroy {
   readonly i18n = inject(I18nService);
   private readonly crumbs = inject(BreadcrumbService);
   private readonly api = inject(ApiClient);
+  private readonly realtime = inject(RealtimeService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly router = inject(Router);
 
   readonly columns = [
@@ -190,7 +192,10 @@ export class CandidateListComponent implements OnInit {
   ngOnInit(): void {
     this.crumbs.set([{ labelKey: 'nav.candidates', labelFallback: 'Candidates' }]);
     this.load();
+    this.realtime.candidateUpdates$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.load());
   }
+
+  ngOnDestroy(): void {}
 
   onSort(sort: SortState): void {
     this.sort.set(sort);

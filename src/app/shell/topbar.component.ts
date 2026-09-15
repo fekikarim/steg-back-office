@@ -4,13 +4,14 @@ import { I18nService } from '../core/i18n.service';
 import { ThemeService } from '../core/theme.service';
 import { AuthService } from '../core/auth.service';
 import { StIconComponent } from '../shared/ui/icon.component';
+import { LiveStatusComponent } from '../shared/ui/live-status.component';
 import type { SupportedLocale } from '../core/dictionaries';
 
 /** Topbar: menu toggle, search, notifications, language, theme, user/session menu. */
 @Component({
   selector: 'st-topbar',
   standalone: true,
-  imports: [FormsModule, StIconComponent],
+  imports: [FormsModule, StIconComponent, LiveStatusComponent],
   template: `
     <header class="st-top">
       <button
@@ -32,6 +33,7 @@ import type { SupportedLocale } from '../core/dictionaries';
         />
       </label>
       <div class="st-top__spacer"></div>
+      <st-live-status />
       <button
         type="button"
         class="st-icon-btn"

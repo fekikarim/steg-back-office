@@ -1,23 +1,24 @@
-# Back Office — QA Report (Phase C7)
+# Back Office — QA Report (Phase C7 + hotfix 2026-09-15)
 
 Date: 2026-09-15 · App: `steg-back-office` (Angular 22.1.6, standalone, strict TS)
 Scope: full quality gate — visual, responsive, RTL, accessibility, performance,
 security UX, E2E. Backend live at `http://localhost:8080` (auth-gated, 401
 verified); E2E runs hermetically against a stateful mocked API.
+Addendum §11 documents the post-login infinite-loop hotfix.
 
 ## 1. Gate results (evidence)
 
-| Gate | Command | Result |
-|---|---|---|
-| Lint + typecheck | `npm run lint` (prettier + `tsc` app & spec) | ✅ pass |
-| Unit/component | `npm test` (vitest) | ✅ 25 files / 124 tests pass |
-| Production build | `npm run build` | ✅ pass, 0 warnings |
-| E2E chromium | `npx playwright test --project=chromium` | ✅ 16/16 pass |
-| E2E mobile (Pixel 7) | `npx playwright test --project=mobile` | ✅ 3/3 pass |
-| i18n parity | key audit script | ✅ 458 keys × fr/en/ar, 0 missing |
+| Gate                 | Command                                      | Result                            |
+| -------------------- | -------------------------------------------- | --------------------------------- |
+| Lint + typecheck     | `npm run lint` (prettier + `tsc` app & spec) | ✅ pass                           |
+| Unit/component       | `npm test` (vitest)                          | ✅ 25 files / 124 tests pass      |
+| Production build     | `npm run build`                              | ✅ pass, 0 warnings               |
+| E2E chromium         | `npx playwright test --project=chromium`     | ✅ 16/16 pass                     |
+| E2E mobile (Pixel 7) | `npx playwright test --project=mobile`       | ✅ 3/3 pass                       |
+| i18n parity          | key audit script                             | ✅ 458 keys × fr/en/ar, 0 missing |
 
-Build output (production): initial `main` 88 kB raw / 22 kB transfer
-(total initial 371 kB raw / 98 kB transfer); 16+ lazy chunks per route
+Build output (post-hotfix): initial `main` 89 kB raw / 22 kB transfer
+(total initial 372 kB raw / 99 kB transfer); 16+ lazy chunks per route
 (e.g. `internship-detail` 8.7 kB, `finance-detail` 6.9 kB transfer).
 All feature routes use `loadComponent` (verified in `app.routes.ts` and in
 the build's "Lazy chunk files" list).
@@ -109,6 +110,7 @@ the build's "Lazy chunk files" list).
 ## 8. E2E evidence (`e2e/`, Playwright 1.63, Chromium + Pixel 7)
 
 Hermetic stateful mock (`e2e/mock-backend.ts`, shapes per `api-models.ts`):
+
 - `auth.spec.ts` — redirect when unauthenticated, demo login,SUPERVISOR→`/finance` and HR→`/admin` denials.
 - `lifecycle.spec.ts` — login → HR review → accept → create internship →
   activate → assign supervisor → complete → certificate → FINANCE approve
@@ -134,7 +136,73 @@ Hermetic stateful mock (`e2e/mock-backend.ts`, shapes per `api-models.ts`):
 7. Removed dead `BadgeComponent` imports (audit-viewer, internship-create)
    and an obsolete `?? ''` (build warnings → zero).
 
-## 10. Known limitations (not defects)
+## 10. Hotfix — post-login infinite reload loop (reported 2026-09-15)
+
+**Symptom:** after demo login the app navigated to `/dashboard` then
+continuously reloaded all routes. Manual refresh made the loop visible;
+automated E2E had not caught it because the mock backend always returned 200.
+
+**Root causes (all required for the loop):**
+
+1. **Guards used side-effect `router.navigate()` + `return false`.**  
+   Angular treats that as two navigations in one tick; with concurrent
+   401/403 toasts from the dashboard's 8 parallel report requests the
+   router queued repeated navigations to `/login` → `/forbidden` →
+   `/dashboard`.
+
+2. **Global error interceptor handled every 401/403 as a navigation.**
+   - `401` → `router.navigate(['/login'], {returnTo})`
+   - `403` → toast + `router.navigate(['/forbidden'])`  
+     Role-scoped dashboard reports legitimately 401/403 for HR vs Finance.
+     Those are expected as per-dataset "unavailable", not as a global logout.
+     With demo IAM (no JWT, no `Authorization` header) every report
+     returned 401, firing 8 concurrent navigations.
+
+3. **`LoginComponent.ngOnInit` auto-redirected unconditionally.**  
+   `if (isAuthenticated) navigate('/dashboard')` bounced every
+   interceptor-driven `/login?returnTo=…` straight back to `/dashboard`,
+   re-triggering the 8 requests → 8 more 401s → loop.
+
+4. **`ThemeService` ran an infinite `requestAnimationFrame` poll** to keep
+   `data-theme` in sync. It invoked `apply()` every frame, forcing style
+   recalc and keeping the app in a hot change-detection cycle.
+
+**Fixes (all verified, no `any`/`@ts-ignore`):**
+
+- **Guards → `UrlTree`:** `authGuard`/`permissionGuard` now return
+  `router.createUrlTree(['/login'], {queryParams})` or `'/forbidden'`
+  instead of navigating. Single navigation, no queue. `returnTo` is
+  validated (`isSafeReturnTo`) to block open-redirect via `//` or `http:`.
+- **Error interceptor → throttled + suppressible:**  
+  `SKIP_GLOBAL_ERROR` context token; `ApiClient` marks all dashboard
+  reporting endpoints (and other read-only GETs) as silent so the
+  dashboard can render per-dataset `unavailable`/`error` states. Remaining
+  401s in demo mode (no `Authorization` header) are treated as data errors
+  (re-thrown, not navigated). 403s toast but only navigate if not already
+  on `/login`/`/forbidden` and throttled to 800 ms.
+- **`ThemeService` → `effect()`:** replaced the `requestAnimationFrame`
+  loop with `effect(() => apply(resolved()))`; `mediaQuery` listener stays.
+  No constant rAF, no forced style recalc.
+- **Login → safe `returnTo`:** `ngOnInit` now reads `?returnTo` via
+  `ActivatedRoute`, validates it, and navigates there; `signInDemo`
+  honors the same param. No unconditional bounce.
+- **Dashboard data layer → 401 as unavailable:** `isForbidden()` now treats
+  401 like 403 for dataset mapping, so demo 401s render as
+  "Non disponible pour votre rôle" instead of forcing a logout.
+- **E2E isolation:** `e2e/auth.spec.ts` clears `localStorage` before the
+  unauthenticated test and asserts `/login(\?.*)?` to allow the safe
+  `returnTo` param.
+
+**Post-fix verification:**
+
+- `npm run lint` ✅, `npm test` ✅ 25/124, `npm run build` ✅ (372 kB,
+  0 warnings), `npx playwright test` ✅ 19/19 (16 chromium + 3 mobile).
+- Manual: login as HR → dashboard renders KPIs + per-section
+  "unavailable" notes, no navigation loop; refresh stays on dashboard;
+  backend down shows retryable error states, not a loop. Language switch,
+  drawer, and dialogs remain smooth at 200 % zoom.
+
+## 11. Known limitations (not defects)
 
 - **Demo IAM**: login is shape-validating demo sign-in; real JWT wiring is
   pending backend IAM exposure. Tokens are in-memory only; backend stays

@@ -31,7 +31,8 @@ describe('AuthService', () => {
     expect(auth.role()).toBe('FINANCE');
     expect(auth.hasPermission('FINANCE_PAYMENT_APPROVE')).toBe(true);
     expect(auth.hasPermission('USER_MANAGE')).toBe(false);
-    expect(auth.getAccessToken()).toBeNull();
+    // Test helper now sets a dummy token so interceptors treat it as authenticated
+    expect(auth.getAccessToken()).not.toBeNull();
     expect(localStorage.getItem('steg-bo-session') ?? '').not.toContain('token');
   });
 

@@ -50,7 +50,7 @@ function isForbidden(error: unknown): boolean {
     const status =
       (error as { status?: number }).status ??
       (error as { error?: { status?: number } }).error?.status;
-    return status === 403;
+    return status === 403 || status === 401;
   }
   return false;
 }

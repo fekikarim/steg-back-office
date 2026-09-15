@@ -3,12 +3,14 @@ import { installMockApi, createMockState, loginAs } from './mock-backend';
 
 test.describe('auth & route guards', () => {
   test.beforeEach(async ({ page }) => {
+    await page.goto('/login');
+    await page.evaluate(() => localStorage.clear());
     await installMockApi(page, createMockState());
   });
 
   test('unauthenticated dashboard access redirects to login', async ({ page }) => {
     await page.goto('/dashboard');
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login(\?.*)?$/);
     await expect(page.getByRole('heading', { name: /connexion|sign in/i })).toBeVisible();
   });
 

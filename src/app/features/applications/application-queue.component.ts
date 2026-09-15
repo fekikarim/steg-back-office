@@ -1,13 +1,16 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, OnDestroy, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, of, catchError } from 'rxjs';
 import { I18nService } from '../../core/i18n.service';
+import { RealtimeService } from '../../core/realtime.service';
 import { BreadcrumbService } from '../../core/breadcrumb.service';
 import { AuthService } from '../../core/auth.service';
 import { ApiClient } from '../../core/api-client.service';
 import { ApplicationQueueStore } from './application-queue-store';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { LiveStatusComponent } from '../../shared/ui/live-status.component';
 import { DataTableComponent, type SortState } from '../../shared/ui/data-table.component';
 import { PaginationComponent } from '../../shared/ui/pagination.component';
 import { BadgeComponent, type BadgeTone } from '../../shared/ui/badge.component';
@@ -31,8 +34,9 @@ interface QueueRow extends ApplicationDetail {
   selector: 'st-applications',
   standalone: true,
   imports: [
-    RouterLink,
     FormsModule,
+    RouterLink,
+    LiveStatusComponent,
     PageHeaderComponent,
     DataTableComponent,
     PaginationComponent,
@@ -48,9 +52,7 @@ interface QueueRow extends ApplicationDetail {
       [title]="i18n.t('applications.queueTitle')"
       [subtitle]="i18n.t('applications.queueSubtitle')"
     >
-      <button type="button" class="st-btn st-btn--secondary" (click)="load()">
-        <st-icon name="refresh" [size]="15" /> {{ i18n.t('table.refresh') }}
-      </button>
+      <st-live-status />
       @if (canReview()) {
         <a routerLink="/applications/new" class="st-btn st-btn--primary">
           <st-icon name="plus" [size]="15" /> {{ i18n.t('applications.newManual') }}
@@ -180,11 +182,13 @@ interface QueueRow extends ApplicationDetail {
     `,
   ],
 })
-export class ApplicationsComponent implements OnInit {
+export class ApplicationsComponent implements OnInit, OnDestroy {
   readonly i18n = inject(I18nService);
   readonly auth = inject(AuthService);
   private readonly crumbs = inject(BreadcrumbService);
   private readonly api = inject(ApiClient);
+  private readonly realtime = inject(RealtimeService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly store = inject(ApplicationQueueStore);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -264,6 +268,8 @@ export class ApplicationsComponent implements OnInit {
     return this.auth.hasPermission('APPLICATION_REVIEW');
   }
 
+  ngOnDestroy(): void {}
+
   ngOnInit(): void {
     this.crumbs.set([
       { labelKey: 'nav.section.operations', labelFallback: 'Operations' },
@@ -284,6 +290,7 @@ export class ApplicationsComponent implements OnInit {
       this.page.set(0);
     }
     this.load();
+    this.realtime.applicationUpdates$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.load());
   }
 
   onFilter(): void {

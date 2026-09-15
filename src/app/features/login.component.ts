@@ -1,10 +1,8 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { I18nService } from '../core/i18n.service';
 import { AuthService } from '../core/auth.service';
-import type { StaffRole } from '../core/roles';
-import { StIconComponent } from '../shared/ui/icon.component';
 import { AlertComponent } from '../shared/ui/alert.component';
 
 @Component({
@@ -29,6 +27,7 @@ import { AlertComponent } from '../shared/ui/alert.component';
               [(ngModel)]="email"
               autocomplete="username"
               dir="ltr"
+              [attr.aria-invalid]="submitted && !email ? 'true' : null"
             />
             @if (submitted && !email) {
               <span class="st-field__error" role="alert">{{ i18n.t('auth.required') }}</span>
@@ -36,39 +35,46 @@ import { AlertComponent } from '../shared/ui/alert.component';
           </label>
           <label class="st-field">
             <span class="st-field__label">{{ i18n.t('auth.password') }} *</span>
-            <input
-              type="password"
-              name="password"
-              class="st-input"
-              required
-              [(ngModel)]="password"
-              autocomplete="current-password"
-              dir="ltr"
-            />
+            <div class="st-password-wrap">
+              <input
+                [type]="showPassword ? 'text' : 'password'"
+                name="password"
+                class="st-input"
+                required
+                [(ngModel)]="password"
+                autocomplete="current-password"
+                dir="ltr"
+                [attr.aria-invalid]="submitted && !password ? 'true' : null"
+              />
+              <button
+                type="button"
+                class="st-btn st-btn--text st-password-toggle"
+                (click)="showPassword = !showPassword"
+                [attr.aria-label]="
+                  showPassword ? i18n.t('auth.hidePassword') : i18n.t('auth.showPassword')
+                "
+              >
+                {{ showPassword ? i18n.t('auth.hidePassword') : i18n.t('auth.showPassword') }}
+              </button>
+            </div>
             @if (submitted && !password) {
               <span class="st-field__error" role="alert">{{ i18n.t('auth.required') }}</span>
             }
           </label>
-          <label class="st-field">
-            <span class="st-field__label">{{ i18n.t('shell.role') }}</span>
-            <select
-              name="role"
-              class="st-input"
-              [(ngModel)]="role"
-              aria-label="{{ i18n.t('shell.role') }}"
-            >
-              <option value="HR">{{ i18n.t('login.role.hr') }}</option>
-              <option value="SUPERVISOR">{{ i18n.t('login.role.supervisor') }}</option>
-              <option value="FINANCE">{{ i18n.t('login.role.finance') }}</option>
-              <option value="DIRECTOR">{{ i18n.t('login.role.director') }}</option>
-              <option value="ADMIN">{{ i18n.t('login.role.admin') }}</option>
-            </select>
-          </label>
-          <button type="submit" class="st-btn st-btn--primary" [disabled]="busy">
-            {{ i18n.t('auth.submit') }}
+          @if (errorMessage()) {
+            <st-alert tone="error" [title]="i18n.t('auth.errorTitle')">{{
+              errorMessage()
+            }}</st-alert>
+          }
+          <button type="submit" class="st-btn st-btn--primary" [disabled]="busy()">
+            @if (busy()) {
+              <span class="st-spinner" aria-hidden="true"></span> {{ i18n.t('common.loading') }}
+            } @else {
+              {{ i18n.t('auth.submit') }}
+            }
           </button>
         </form>
-        <st-alert tone="info" style="margin-block-start: 1rem">{{ i18n.t('auth.demo') }}</st-alert>
+        <p class="st-login__hint">{{ i18n.t('auth.hint') }}</p>
       </section>
     </main>
   `,
@@ -110,6 +116,43 @@ import { AlertComponent } from '../shared/ui/alert.component';
         display: grid;
         gap: 0.8rem;
       }
+      .st-password-wrap {
+        display: flex;
+        gap: 0.4rem;
+        align-items: center;
+      }
+      .st-password-wrap .st-input {
+        flex: 1;
+      }
+      .st-password-toggle {
+        white-space: nowrap;
+        font-size: 0.8rem;
+      }
+      .st-spinner {
+        inline-size: 0.9rem;
+        block-size: 0.9rem;
+        border: 2px solid currentColor;
+        border-inline-end-color: transparent;
+        border-radius: 50%;
+        display: inline-block;
+        animation: st-spin 0.7s linear infinite;
+      }
+      @keyframes st-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .st-login__hint {
+        margin: 1rem 0 0;
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        text-align: center;
+      }
+      @media (max-width: 480px) {
+        .st-login__card {
+          padding: 1.2rem;
+        }
+      }
     `,
   ],
 })
@@ -117,23 +160,63 @@ export class LoginComponent implements OnInit {
   readonly i18n = inject(I18nService);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   email = '';
   password = '';
-  role: StaffRole = 'HR';
+  showPassword = false;
   submitted = false;
-  busy = false;
+  readonly busy = signal(false);
+  readonly errorMessage = signal('');
 
   ngOnInit(): void {
-    if (this.auth.isAuthenticated()) void this.router.navigate(['/dashboard']);
+    if (this.auth.isAuthenticated()) {
+      const raw = this.route.snapshot.queryParamMap.get('returnTo');
+      const target = isSafeReturnTo(raw) ? raw : '/dashboard';
+      void this.router.navigateByUrl(target);
+    }
   }
 
   submit(): void {
     this.submitted = true;
+    this.errorMessage.set('');
     if (!this.email || !this.password) return;
-    this.busy = true;
-    // Demo sign-in; real IAM (JWT + refresh, httpOnly cookies) lands in Phase C6 via ApiClient.
-    this.auth.signInDemo(this.email.trim(), this.role);
-    this.busy = false;
+    this.busy.set(true);
+    this.auth.login(this.email.trim(), this.password).subscribe({
+      next: () => {
+        this.busy.set(false);
+        // Navigation is handled inside AuthService (honors returnTo)
+      },
+      error: (err: unknown) => {
+        this.busy.set(false);
+        this.errorMessage.set(this.extractMessage(err));
+      },
+    });
   }
+
+  private extractMessage(error: unknown): string {
+    if (typeof error === 'object' && error !== null) {
+      const httpErr = error as {
+        error?: { message?: string; error?: string; fieldErrors?: unknown[] };
+        status?: number;
+        message?: string;
+      };
+      if (httpErr.error?.message) return httpErr.error.message;
+      if (typeof httpErr.error?.error === 'string') return httpErr.error.error;
+      if (httpErr.status === 401) return this.i18n.t('auth.invalidCredentials');
+      if (httpErr.status === 423) return this.i18n.t('auth.accountLocked');
+      if (httpErr.status === 429) return this.i18n.t('auth.tooManyAttempts');
+      if (httpErr.message) return httpErr.message;
+    }
+    return this.i18n.t('auth.genericError');
+  }
+}
+
+function isSafeReturnTo(value: string | null): value is string {
+  if (!value) return false;
+  const lower = value.toLowerCase().trim();
+  if (lower.startsWith('//') || lower.startsWith('http:') || lower.startsWith('https:'))
+    return false;
+  if (value.includes(':') || value.includes('\\')) return false;
+  return value.startsWith('/');
 }

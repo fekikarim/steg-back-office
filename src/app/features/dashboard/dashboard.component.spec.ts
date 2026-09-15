@@ -200,14 +200,14 @@ describe('DashboardComponent', () => {
     expect(text).toContain('unread');
   });
 
-  it('refresh control reloads and announces update time', async () => {
-    const { fixture, calls } = await setup('HR', snapshot());
-    const btn = [...fixture.nativeElement.querySelectorAll('button')].find((b: HTMLButtonElement) =>
+  it('has no manual refresh button — uses live WebSocket with update timestamp', async () => {
+    const { fixture } = await setup('HR', snapshot());
+    const refreshBtn = [...fixture.nativeElement.querySelectorAll('button')].find((b: HTMLButtonElement) =>
       b.textContent?.includes('Refresh'),
-    ) as HTMLButtonElement;
-    expect(btn).toBeTruthy();
-    btn.click();
-    expect(calls()).toBeGreaterThan(1);
-    expect((fixture.nativeElement.textContent as string).length).toBeGreaterThan(0);
+    );
+    expect(refreshBtn).toBeFalsy();
+    expect(fixture.nativeElement.querySelector('st-live-status')).toBeTruthy();
+    // Dashboard announces last auto-refresh time without manual button interaction
+    expect(fixture.nativeElement.textContent as string).toContain('Updated at');
   });
 });

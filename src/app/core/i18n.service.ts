@@ -1,6 +1,8 @@
-import { Injectable, inject, signal, computed, PLATFORM_ID } from '@angular/core';
+import { Injectable, inject, signal, computed, PLATFORM_ID, Injector } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { DICTIONARIES, type SupportedLocale } from './dictionaries';
+import { environment } from '../../environments/environment';
 
 const STORAGE_KEY = 'steg-bo-locale';
 
@@ -8,6 +10,7 @@ const STORAGE_KEY = 'steg-bo-locale';
 @Injectable({ providedIn: 'root' })
 export class I18nService {
   private readonly platformId = inject(PLATFORM_ID);
+  private readonly injector = inject(Injector);
   readonly locale = signal<SupportedLocale>(this.readStored());
   readonly isRtl = computed(() => this.locale() === 'ar');
   /** Incremented on every language change so pure-pipe-free templates update. */
@@ -35,6 +38,18 @@ export class I18nService {
       }
       document.documentElement.lang = locale;
       document.documentElement.dir = locale === 'ar' ? 'rtl' : 'ltr';
+      // Sync to backend for email notifications and future sessions (best-effort)
+      try {
+        const http = this.injector.get(HttpClient, null);
+        const token = localStorage.getItem('steg-bo-access');
+        if (http && token) {
+          http
+            .put(`${environment.apiBaseUrl}/api/users/me/locale`, { locale }, {})
+            .subscribe({ error: () => {} });
+        }
+      } catch {
+        /* ignore - offline or unauthenticated */
+      }
     }
   }
 

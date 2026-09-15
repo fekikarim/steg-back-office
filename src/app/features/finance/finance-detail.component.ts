@@ -1,12 +1,15 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { I18nService } from '../../core/i18n.service';
 import { BreadcrumbService } from '../../core/breadcrumb.service';
 import { AuthService } from '../../core/auth.service';
+import { RealtimeService } from '../../core/realtime.service';
 import { ToastService } from '../../shared/ui/toast.service';
 import { FinanceService, type FinanceCaseBundle, isForbidden } from './finance.service';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { LiveStatusComponent } from '../../shared/ui/live-status.component';
 import { BadgeComponent, type BadgeTone } from '../../shared/ui/badge.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { EmptyStateComponent, ErrorStateComponent } from '../../shared/ui/states.component';
@@ -33,6 +36,7 @@ type ReasonKind = 'approve' | 'reject' | 'doc-review' | null;
     RouterLink,
     FormsModule,
     PageHeaderComponent,
+    LiveStatusComponent,
     BadgeComponent,
     SkeletonComponent,
     EmptyStateComponent,
@@ -58,6 +62,7 @@ type ReasonKind = 'approve' | 'reject' | 'doc-review' | null;
       </p>
     } @else if (bundle(); as dossier) {
       <st-page-header [title]="dossier.financeCase.reference" [subtitle]="internName(dossier)">
+        <st-live-status />
         <a routerLink="/finance" class="st-btn st-btn--secondary">{{ i18n.t('common.back') }}</a>
         @if (canDecide() && isDecidable(dossier.financeCase.status)) {
           <button
@@ -707,6 +712,8 @@ export class FinanceDetailComponent implements OnInit {
   readonly auth = inject(AuthService);
   private readonly crumbs = inject(BreadcrumbService);
   private readonly service = inject(FinanceService);
+  private readonly realtime = inject(RealtimeService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly toast = inject(ToastService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -787,6 +794,10 @@ export class FinanceDetailComponent implements OnInit {
       { labelKey: 'finance.caseTitle', labelFallback: 'Case' },
     ]);
     this.load();
+    this.realtime.financeUpdates$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((e) => {
+      const currentId = this.route.snapshot.paramMap.get('id');
+      if (!e.entityId || e.entityId === currentId) this.load();
+    });
   }
 
   load(): void {

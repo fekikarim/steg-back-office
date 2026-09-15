@@ -1,6 +1,8 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, OnDestroy, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { I18nService } from '../../core/i18n.service';
+import { RealtimeService } from '../../core/realtime.service';
 import { BreadcrumbService } from '../../core/breadcrumb.service';
 import { AuthService } from '../../core/auth.service';
 import { ToastService } from '../../shared/ui/toast.service';
@@ -13,6 +15,7 @@ import {
 } from './admin.service';
 import { ALL_ROLES, permissionsFor } from '../../core/roles';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { LiveStatusComponent } from '../../shared/ui/live-status.component';
 import { BadgeComponent, type BadgeTone } from '../../shared/ui/badge.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { EmptyStateComponent, ErrorStateComponent } from '../../shared/ui/states.component';
@@ -37,6 +40,7 @@ type TabId = 'departments' | 'employees' | 'accounts';
   standalone: true,
   imports: [
     FormsModule,
+    LiveStatusComponent,
     PageHeaderComponent,
     BadgeComponent,
     SkeletonComponent,
@@ -51,9 +55,7 @@ type TabId = 'departments' | 'employees' | 'accounts';
   ],
   template: `
     <st-page-header [title]="i18n.t('admin.title')" [subtitle]="i18n.t('admin.subtitle')">
-      <button type="button" class="st-btn st-btn--secondary" (click)="load()">
-        <st-icon name="refresh" [size]="15" /> {{ i18n.t('table.refresh') }}
-      </button>
+      <st-live-status />
     </st-page-header>
 
     <st-tabs
@@ -481,10 +483,12 @@ type TabId = 'departments' | 'employees' | 'accounts';
     `,
   ],
 })
-export class AdminWorkspaceComponent implements OnInit {
+export class AdminWorkspaceComponent implements OnInit, OnDestroy {
   readonly i18n = inject(I18nService);
   readonly auth = inject(AuthService);
   private readonly crumbs = inject(BreadcrumbService);
+  private readonly realtime = inject(RealtimeService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly service = inject(AdminService);
   private readonly toast = inject(ToastService);
 
@@ -584,9 +588,14 @@ export class AdminWorkspaceComponent implements OnInit {
     return '—'.repeat(depth) + (depth > 0 ? ' ' : '');
   }
 
+  ngOnDestroy(): void {}
+
   ngOnInit(): void {
     this.crumbs.set([{ labelKey: 'nav.admin', labelFallback: 'Administration' }]);
     this.load();
+    this.realtime.backofficeEvents$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((e) => {
+      if (e.type === 'department' || e.type === 'employee') this.load();
+    });
   }
 
   load(): void {

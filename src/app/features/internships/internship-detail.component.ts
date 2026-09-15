@@ -1,9 +1,11 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { I18nService } from '../../core/i18n.service';
 import { BreadcrumbService } from '../../core/breadcrumb.service';
 import { AuthService } from '../../core/auth.service';
+import { RealtimeService } from '../../core/realtime.service';
 import { ToastService } from '../../shared/ui/toast.service';
 import {
   InternshipService,
@@ -12,6 +14,7 @@ import {
   isForbidden,
 } from './internship.service';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { LiveStatusComponent } from '../../shared/ui/live-status.component';
 import { BadgeComponent, type BadgeTone } from '../../shared/ui/badge.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { EmptyStateComponent, ErrorStateComponent } from '../../shared/ui/states.component';
@@ -42,6 +45,7 @@ import { INTERNSHIP_UPLOAD_TYPES, REQUIRED_DOSSIER_TYPES } from '../../core/api-
     RouterLink,
     FormsModule,
     PageHeaderComponent,
+    LiveStatusComponent,
     BadgeComponent,
     SkeletonComponent,
     EmptyStateComponent,
@@ -72,6 +76,7 @@ import { INTERNSHIP_UPLOAD_TYPES, REQUIRED_DOSSIER_TYPES } from '../../core/api-
         [title]="dossier.internship.reference"
         [subtitle]="dossier.internship.candidateFullName"
       >
+        <st-live-status />
         <a routerLink="/internships" class="st-btn st-btn--secondary">{{
           i18n.t('common.back')
         }}</a>
@@ -933,6 +938,8 @@ export class InternshipDetailComponent implements OnInit {
   readonly auth = inject(AuthService);
   private readonly crumbs = inject(BreadcrumbService);
   private readonly service = inject(InternshipService);
+  private readonly realtime = inject(RealtimeService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly toast = inject(ToastService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -1024,6 +1031,10 @@ export class InternshipDetailComponent implements OnInit {
       { labelKey: 'internshipDetail.title', labelFallback: 'Internship' },
     ]);
     this.load();
+    this.realtime.internshipUpdates$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((e) => {
+      const currentId = this.route.snapshot.paramMap.get('id');
+      if (!e.entityId || e.entityId === currentId) this.load();
+    });
   }
 
   load(): void {

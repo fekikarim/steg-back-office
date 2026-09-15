@@ -1,19 +1,21 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, OnDestroy, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, of, catchError, map } from 'rxjs';
 import { I18nService } from '../../core/i18n.service';
+import { RealtimeService } from '../../core/realtime.service';
 import { BreadcrumbService } from '../../core/breadcrumb.service';
 import { ApiClient } from '../../core/api-client.service';
 import { activeAssignment } from '../internships/internship.service';
 import { FinanceQueueStore } from './finance-queue-store';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { LiveStatusComponent } from '../../shared/ui/live-status.component';
 import { DataTableComponent } from '../../shared/ui/data-table.component';
 import { PaginationComponent } from '../../shared/ui/pagination.component';
 import { BadgeComponent, type BadgeTone } from '../../shared/ui/badge.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { EmptyStateComponent, ErrorStateComponent } from '../../shared/ui/states.component';
-import { StIconComponent } from '../../shared/ui/icon.component';
 import type { FinanceCaseQueueItem, FinanceCaseStatus } from '../../core/api-models';
 
 interface FinanceRow extends FinanceCaseQueueItem {
@@ -32,8 +34,9 @@ interface FinanceRow extends FinanceCaseQueueItem {
   selector: 'st-finance-queue',
   standalone: true,
   imports: [
-    RouterLink,
     FormsModule,
+    RouterLink,
+    LiveStatusComponent,
     PageHeaderComponent,
     DataTableComponent,
     PaginationComponent,
@@ -41,16 +44,13 @@ interface FinanceRow extends FinanceCaseQueueItem {
     SkeletonComponent,
     EmptyStateComponent,
     ErrorStateComponent,
-    StIconComponent,
   ],
   template: `
     <st-page-header
       [title]="i18n.t('finance.queueTitle')"
       [subtitle]="i18n.t('finance.queueSubtitle')"
     >
-      <button type="button" class="st-btn st-btn--secondary" (click)="load()">
-        <st-icon name="refresh" [size]="15" /> {{ i18n.t('table.refresh') }}
-      </button>
+      <st-live-status />
     </st-page-header>
 
     <section class="st-filters" [attr.aria-label]="i18n.t('table.filters')">
@@ -184,10 +184,12 @@ interface FinanceRow extends FinanceCaseQueueItem {
     `,
   ],
 })
-export class FinanceQueueComponent implements OnInit {
+export class FinanceQueueComponent implements OnInit, OnDestroy {
   readonly i18n = inject(I18nService);
   private readonly crumbs = inject(BreadcrumbService);
   private readonly api = inject(ApiClient);
+  private readonly realtime = inject(RealtimeService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly store = inject(FinanceQueueStore);
   private readonly router = inject(Router);
 
@@ -242,6 +244,8 @@ export class FinanceQueueComponent implements OnInit {
     });
   });
 
+  ngOnDestroy(): void {}
+
   ngOnInit(): void {
     this.crumbs.set([{ labelKey: 'nav.finance', labelFallback: 'Finance' }]);
     const saved = this.store.get();
@@ -254,6 +258,7 @@ export class FinanceQueueComponent implements OnInit {
     this.department.set(saved.department);
     this.eligibility.set(saved.eligibility);
     this.load();
+    this.realtime.financeUpdates$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.load());
   }
 
   /** Server-side change (status/sort): reset page and refetch. */

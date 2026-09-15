@@ -1,10 +1,13 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { forkJoin, of, catchError } from 'rxjs';
 import { I18nService } from '../../core/i18n.service';
 import { BreadcrumbService } from '../../core/breadcrumb.service';
+import { RealtimeService } from '../../core/realtime.service';
 import { ApiClient } from '../../core/api-client.service';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { LiveStatusComponent } from '../../shared/ui/live-status.component';
 import { BadgeComponent } from '../../shared/ui/badge.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { ErrorStateComponent } from '../../shared/ui/states.component';
@@ -22,6 +25,7 @@ import type { ApplicationDetail, CandidateDetail } from '../../core/api-models';
   imports: [
     RouterLink,
     PageHeaderComponent,
+    LiveStatusComponent,
     BadgeComponent,
     SkeletonComponent,
     ErrorStateComponent,
@@ -42,6 +46,7 @@ import type { ApplicationDetail, CandidateDetail } from '../../core/api-models';
       </p>
     } @else if (candidate(); as c) {
       <st-page-header [title]="c.firstName + ' ' + c.lastName" [subtitle]="c.universityName">
+        <st-live-status />
         <a routerLink="/candidates" class="st-btn st-btn--secondary">{{ i18n.t('common.back') }}</a>
       </st-page-header>
 
@@ -222,6 +227,8 @@ export class CandidateDetailComponent implements OnInit {
   readonly i18n = inject(I18nService);
   private readonly crumbs = inject(BreadcrumbService);
   private readonly api = inject(ApiClient);
+  private readonly realtime = inject(RealtimeService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -237,6 +244,10 @@ export class CandidateDetailComponent implements OnInit {
       { labelKey: 'candidateDetail.title', labelFallback: 'Candidate' },
     ]);
     this.load();
+    this.realtime.candidateUpdates$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((e) => {
+      const currentId = this.route.snapshot.paramMap.get('id');
+      if (!e.entityId || e.entityId === currentId) this.load();
+    });
   }
 
   load(): void {

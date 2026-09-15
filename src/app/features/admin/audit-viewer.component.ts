@@ -1,17 +1,19 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, OnDestroy, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { I18nService } from '../../core/i18n.service';
+import { RealtimeService } from '../../core/realtime.service';
 import { BreadcrumbService } from '../../core/breadcrumb.service';
 import { ToastService } from '../../shared/ui/toast.service';
 import { AdminService, isForbidden, truncateSnapshot } from './admin.service';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { LiveStatusComponent } from '../../shared/ui/live-status.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { EmptyStateComponent, ErrorStateComponent } from '../../shared/ui/states.component';
 import { AlertComponent } from '../../shared/ui/alert.component';
 import { DataTableComponent } from '../../shared/ui/data-table.component';
 import { PaginationComponent } from '../../shared/ui/pagination.component';
 import { DrawerComponent } from '../../shared/ui/drawer.component';
-import { StIconComponent } from '../../shared/ui/icon.component';
 import type { AuditLogEntry } from '../../core/api-models';
 
 /**
@@ -25,6 +27,7 @@ import type { AuditLogEntry } from '../../core/api-models';
   standalone: true,
   imports: [
     FormsModule,
+    LiveStatusComponent,
     PageHeaderComponent,
     SkeletonComponent,
     EmptyStateComponent,
@@ -33,13 +36,10 @@ import type { AuditLogEntry } from '../../core/api-models';
     DataTableComponent,
     PaginationComponent,
     DrawerComponent,
-    StIconComponent,
   ],
   template: `
     <st-page-header [title]="i18n.t('audit.title')" [subtitle]="i18n.t('audit.subtitle')">
-      <button type="button" class="st-btn st-btn--secondary" (click)="load()">
-        <st-icon name="refresh" [size]="15" /> {{ i18n.t('table.refresh') }}
-      </button>
+      <st-live-status />
     </st-page-header>
 
     <st-alert tone="info">{{ i18n.t('audit.readOnlyNote') }}</st-alert>
@@ -244,9 +244,11 @@ import type { AuditLogEntry } from '../../core/api-models';
     `,
   ],
 })
-export class AuditViewerComponent implements OnInit {
+export class AuditViewerComponent implements OnInit, OnDestroy {
   readonly i18n = inject(I18nService);
   private readonly crumbs = inject(BreadcrumbService);
+  private readonly realtime = inject(RealtimeService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly service = inject(AdminService);
   private readonly toast = inject(ToastService);
 
@@ -286,9 +288,12 @@ export class AuditViewerComponent implements OnInit {
     });
   });
 
+  ngOnDestroy(): void {}
+
   ngOnInit(): void {
     this.crumbs.set([{ labelKey: 'nav.audit', labelFallback: 'Audit' }]);
     this.load();
+    this.realtime.auditUpdates$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.load());
   }
 
   onServerFilter(): void {

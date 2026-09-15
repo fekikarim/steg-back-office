@@ -1,13 +1,16 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, OnDestroy, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { I18nService } from '../../core/i18n.service';
+import { RealtimeService } from '../../core/realtime.service';
 import { BreadcrumbService } from '../../core/breadcrumb.service';
 import { AuthService } from '../../core/auth.service';
 import { ApiClient } from '../../core/api-client.service';
 import { InternshipService, activeAssignment } from './internship.service';
 import { InternshipQueueStore } from './internship-queue-store';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { LiveStatusComponent } from '../../shared/ui/live-status.component';
 import { DataTableComponent, type SortState } from '../../shared/ui/data-table.component';
 import { PaginationComponent } from '../../shared/ui/pagination.component';
 import { BadgeComponent, type BadgeTone } from '../../shared/ui/badge.component';
@@ -36,8 +39,9 @@ const MY_SUPERVISOR_KEY = 'st-mine-supervisor';
   selector: 'st-internships',
   standalone: true,
   imports: [
-    RouterLink,
     FormsModule,
+    RouterLink,
+    LiveStatusComponent,
     PageHeaderComponent,
     DataTableComponent,
     PaginationComponent,
@@ -53,9 +57,7 @@ const MY_SUPERVISOR_KEY = 'st-mine-supervisor';
       [title]="i18n.t('internships.queueTitle')"
       [subtitle]="i18n.t('internships.queueSubtitle')"
     >
-      <button type="button" class="st-btn st-btn--secondary" (click)="load()">
-        <st-icon name="refresh" [size]="15" /> {{ i18n.t('table.refresh') }}
-      </button>
+      <st-live-status />
       @if (canManage()) {
         <a
           routerLink="/applications"
@@ -195,11 +197,13 @@ const MY_SUPERVISOR_KEY = 'st-mine-supervisor';
     `,
   ],
 })
-export class InternshipListComponent implements OnInit {
+export class InternshipListComponent implements OnInit, OnDestroy {
   readonly i18n = inject(I18nService);
   readonly auth = inject(AuthService);
   private readonly crumbs = inject(BreadcrumbService);
   private readonly api = inject(ApiClient);
+  private readonly realtime = inject(RealtimeService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly service = inject(InternshipService);
   private readonly store = inject(InternshipQueueStore);
   private readonly router = inject(Router);
@@ -273,6 +277,8 @@ export class InternshipListComponent implements OnInit {
     return this.auth.role() === 'SUPERVISOR';
   }
 
+  ngOnDestroy(): void {}
+
   ngOnInit(): void {
     this.crumbs.set([{ labelKey: 'nav.internships', labelFallback: 'Internships' }]);
     const saved = this.store.get();
@@ -286,6 +292,7 @@ export class InternshipListComponent implements OnInit {
     const remembered = readRememberedSupervisor();
     this.supervisor.set(saved.supervisor || (this.isSupervisorView() ? remembered : ''));
     this.load();
+    this.realtime.internshipUpdates$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.load());
   }
 
   onFilter(): void {

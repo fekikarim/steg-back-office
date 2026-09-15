@@ -6,6 +6,7 @@ import { BreadcrumbService } from '../../core/breadcrumb.service';
 import { ApiClient } from '../../core/api-client.service';
 import { ToastService } from '../../shared/ui/toast.service';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { LiveStatusComponent } from '../../shared/ui/live-status.component';
 import { AlertComponent } from '../../shared/ui/alert.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { StIconComponent } from '../../shared/ui/icon.component';
@@ -28,12 +29,14 @@ const ALLOWED_MIME = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'
     RouterLink,
     FormsModule,
     PageHeaderComponent,
+    LiveStatusComponent,
     AlertComponent,
     SkeletonComponent,
     StIconComponent,
   ],
   template: `
     <st-page-header [title]="i18n.t('intake.title')" [subtitle]="i18n.t('intake.subtitle')">
+      <st-live-status />
       <a routerLink="/applications" class="st-btn st-btn--secondary">{{ i18n.t('common.back') }}</a>
     </st-page-header>
 

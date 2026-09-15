@@ -1,16 +1,18 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, OnDestroy, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { I18nService } from '../core/i18n.service';
 import { AuthService } from '../core/auth.service';
 import { BreadcrumbService } from '../core/breadcrumb.service';
 import { DashboardService, type DashboardSnapshot } from './dashboard/dashboard.service';
+import { RealtimeService } from '../core/realtime.service';
 import { PageHeaderComponent } from '../shared/ui/page-header.component';
 import { BadgeComponent } from '../shared/ui/badge.component';
 import { SkeletonComponent } from '../shared/ui/skeleton.component';
 import { ErrorStateComponent } from '../shared/ui/states.component';
-import { StIconComponent } from '../shared/ui/icon.component';
 import { DistBarsComponent } from './dashboard/dist-bars.component';
+import { LiveStatusComponent } from '../shared/ui/live-status.component';
 import { sumGroups, countOf, totalOf, type GroupCountDto } from '../core/api-models';
 import type { StaffRole } from '../core/roles';
 
@@ -30,19 +32,12 @@ import type { StaffRole } from '../core/roles';
     BadgeComponent,
     SkeletonComponent,
     ErrorStateComponent,
-    StIconComponent,
     DistBarsComponent,
+    LiveStatusComponent,
   ],
   template: `
     <st-page-header [title]="i18n.t('dashboard.title')" [subtitle]="i18n.t('dashboard.subtitle')">
-      <button
-        type="button"
-        class="st-btn st-btn--secondary"
-        (click)="load()"
-        [disabled]="loading()"
-      >
-        <st-icon name="refresh" [size]="15" /> {{ i18n.t('dashboard.refresh') }}
-      </button>
+      <st-live-status />
     </st-page-header>
 
     @if (refreshedAt()) {
@@ -479,11 +474,13 @@ import type { StaffRole } from '../core/roles';
     `,
   ],
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   readonly i18n = inject(I18nService);
   readonly auth = inject(AuthService);
   private readonly crumbs = inject(BreadcrumbService);
   private readonly service = inject(DashboardService);
+  private readonly realtime = inject(RealtimeService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly loading = signal(true);
   readonly snapshot = signal<DashboardSnapshot | null>(null);
@@ -506,7 +503,13 @@ export class DashboardComponent implements OnInit {
   ngOnInit(): void {
     this.crumbs.set([{ labelKey: 'nav.dashboard', labelFallback: 'Dashboard' }]);
     this.load();
+    // Real-time: dashboard reacts to every domain (no refresh button needed)
+    this.realtime.backofficeEvents$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.load();
+    });
   }
+
+  ngOnDestroy(): void {}
 
   load(): void {
     const role: StaffRole | null = this.auth.role();

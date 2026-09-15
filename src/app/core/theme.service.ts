@@ -1,4 +1,4 @@
-import { Injectable, inject, signal, computed, PLATFORM_ID } from '@angular/core';
+import { Injectable, inject, signal, computed, PLATFORM_ID, effect } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import type { ThemeMode, ResolvedTheme } from './tokens';
 
@@ -27,18 +27,10 @@ export class ThemeService {
       this.mediaQuery.addEventListener('change', (e) => this.systemDark.set(e.matches));
     }
     this.apply(this.resolved());
-    // Re-apply whenever resolved theme changes (manual effect without importing effect()).
-    // Poll-free: subscribe via computed read in a microtask-friendly way using queueMicrotask loop.
-    let last = this.resolved();
-    const tick = (): void => {
-      const current = this.resolved();
-      if (current !== last) {
-        last = current;
-        this.apply(current);
-      }
-      if (isPlatformBrowser(this.platformId)) requestAnimationFrame(tick);
-    };
-    if (isPlatformBrowser(this.platformId)) requestAnimationFrame(tick);
+    // Keep the DOM attribute in sync whenever the resolved theme changes.
+    effect(() => {
+      this.apply(this.resolved());
+    });
   }
 
   setMode(mode: ThemeMode): void {

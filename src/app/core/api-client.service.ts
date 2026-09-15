@@ -1,7 +1,8 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpContext } from '@angular/common/http';
 import { Observable, catchError, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { SKIP_GLOBAL_ERROR } from './error.interceptor';
 import type {
   Page,
   PageQuery,
@@ -79,39 +80,56 @@ export class ApiClient {
 
   getApplications(query: PageQuery): Observable<Page<ApplicationRow>> {
     return this.http
-      .get<Page<ApplicationRow>>(`${this.baseUrl}/api/applications`, { params: this.params(query) })
+      .get<Page<ApplicationRow>>(`${this.baseUrl}/api/applications`, {
+        params: this.params(query),
+        context: this.silentContext(),
+      })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
   // -- Phase A13 reporting endpoints (aggregate counts, not raw dumps) --
 
+  private silentContext(): HttpContext {
+    return new HttpContext().set(SKIP_GLOBAL_ERROR, true);
+  }
+
   getApplicationsByStatus(): Observable<GroupCountDto[]> {
     return this.http
-      .get<GroupCountDto[]>(`${this.baseUrl}/api/reports/applications-by-status`)
+      .get<GroupCountDto[]>(`${this.baseUrl}/api/reports/applications-by-status`, {
+        context: this.silentContext(),
+      })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
   getInternshipsByStatus(): Observable<GroupCountDto[]> {
     return this.http
-      .get<GroupCountDto[]>(`${this.baseUrl}/api/reports/internships-by-status`)
+      .get<GroupCountDto[]>(`${this.baseUrl}/api/reports/internships-by-status`, {
+        context: this.silentContext(),
+      })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
   getInternshipsByType(): Observable<GroupCountDto[]> {
     return this.http
-      .get<GroupCountDto[]>(`${this.baseUrl}/api/reports/internships-by-type`)
+      .get<GroupCountDto[]>(`${this.baseUrl}/api/reports/internships-by-type`, {
+        context: this.silentContext(),
+      })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
   getInternshipsByDepartment(): Observable<GroupCountDto[]> {
     return this.http
-      .get<GroupCountDto[]>(`${this.baseUrl}/api/reports/internships-by-department`)
+      .get<GroupCountDto[]>(`${this.baseUrl}/api/reports/internships-by-department`, {
+        context: this.silentContext(),
+      })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
   getFinanceCasesByStatus(): Observable<GroupCountDto[]> {
     return this.http
-      .get<GroupCountDto[]>(`${this.baseUrl}/api/reports/finance-cases-by-status`)
+      .get<GroupCountDto[]>(`${this.baseUrl}/api/reports/finance-cases-by-status`, {
+        context: this.silentContext(),
+      })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
@@ -123,6 +141,7 @@ export class ApiClient {
         `${this.baseUrl}/api/reports/payment-totals`,
         {
           params,
+          context: this.silentContext(),
         },
       )
       .pipe(catchError((e) => throwError(() => e)));
@@ -141,6 +160,7 @@ export class ApiClient {
         `${this.baseUrl}/api/finance-cases`,
         {
           params,
+          context: this.silentContext(),
         },
       )
       .pipe(catchError((e) => throwError(() => e)));
@@ -149,7 +169,10 @@ export class ApiClient {
   getNotifications(unreadOnly: boolean, page = 0, size = 8): Observable<Page<NotificationItem>> {
     const params = this.pageable(page, size, 'createdAt,desc').set('unreadOnly', unreadOnly);
     return this.http
-      .get<Page<NotificationItem>>(`${this.baseUrl}/api/notifications`, { params })
+      .get<Page<NotificationItem>>(`${this.baseUrl}/api/notifications`, {
+        params,
+        context: this.silentContext(),
+      })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
@@ -163,19 +186,26 @@ export class ApiClient {
   /** Staff application list (ADMIN/HR see all). Backend returns the full array. */
   listApplications(): Observable<ApplicationDetail[]> {
     return this.http
-      .get<ApplicationDetail[]>(`${this.baseUrl}/api/applications`)
+      .get<ApplicationDetail[]>(`${this.baseUrl}/api/applications`, {
+        context: this.silentContext(),
+      })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
   getApplication(id: string): Observable<ApplicationDetail> {
     return this.http
-      .get<ApplicationDetail>(`${this.baseUrl}/api/applications/${id}`)
+      .get<ApplicationDetail>(`${this.baseUrl}/api/applications/${id}`, {
+        context: this.silentContext(),
+      })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
   getApplicationDocuments(applicationId: string): Observable<ApplicationDocumentItem[]> {
     return this.http
-      .get<ApplicationDocumentItem[]>(`${this.baseUrl}/api/applications/${applicationId}/documents`)
+      .get<ApplicationDocumentItem[]>(
+        `${this.baseUrl}/api/applications/${applicationId}/documents`,
+        { context: this.silentContext() },
+      )
       .pipe(catchError((e) => throwError(() => e)));
   }
 
@@ -210,13 +240,17 @@ export class ApiClient {
 
   getApplicationWorkflow(applicationId: string): Observable<WorkflowInstanceResponse> {
     return this.http
-      .get<WorkflowInstanceResponse>(`${this.baseUrl}/api/applications/${applicationId}/workflow`)
+      .get<WorkflowInstanceResponse>(`${this.baseUrl}/api/applications/${applicationId}/workflow`, {
+        context: this.silentContext(),
+      })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
   listWorkflowActions(instanceId: string): Observable<WorkflowActionResponse[]> {
     return this.http
-      .get<WorkflowActionResponse[]>(`${this.baseUrl}/api/workflows/${instanceId}/actions`)
+      .get<WorkflowActionResponse[]>(`${this.baseUrl}/api/workflows/${instanceId}/actions`, {
+        context: this.silentContext(),
+      })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
@@ -226,19 +260,21 @@ export class ApiClient {
    */
   listCandidates(): Observable<CandidateSummary[]> {
     return this.http
-      .get<CandidateSummary[]>(`${this.baseUrl}/api/candidates`)
+      .get<CandidateSummary[]>(`${this.baseUrl}/api/candidates`, { context: this.silentContext() })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
   getCandidate(id: string): Observable<CandidateDetail> {
     return this.http
-      .get<CandidateDetail>(`${this.baseUrl}/api/candidates/${id}`)
+      .get<CandidateDetail>(`${this.baseUrl}/api/candidates/${id}`, {
+        context: this.silentContext(),
+      })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
   listUniversities(): Observable<University[]> {
     return this.http
-      .get<University[]>(`${this.baseUrl}/api/universities`)
+      .get<University[]>(`${this.baseUrl}/api/universities`, { context: this.silentContext() })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
@@ -275,13 +311,15 @@ export class ApiClient {
   /** Staff internship list (ADMIN/HR/SUPERVISOR). Backend returns the full array. */
   listInternships(): Observable<InternshipDetail[]> {
     return this.http
-      .get<InternshipDetail[]>(`${this.baseUrl}/api/internships`)
+      .get<InternshipDetail[]>(`${this.baseUrl}/api/internships`, { context: this.silentContext() })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
   getInternship(id: string): Observable<InternshipDetail> {
     return this.http
-      .get<InternshipDetail>(`${this.baseUrl}/api/internships/${id}`)
+      .get<InternshipDetail>(`${this.baseUrl}/api/internships/${id}`, {
+        context: this.silentContext(),
+      })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
@@ -320,7 +358,9 @@ export class ApiClient {
   /** Assignment history (ADMIN/HR/SUPERVISOR). */
   listAssignments(internshipId: string): Observable<InternshipAssignment[]> {
     return this.http
-      .get<InternshipAssignment[]>(`${this.baseUrl}/api/internships/${internshipId}/assignments`)
+      .get<InternshipAssignment[]>(`${this.baseUrl}/api/internships/${internshipId}/assignments`, {
+        context: this.silentContext(),
+      })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
@@ -346,6 +386,7 @@ export class ApiClient {
     return this.http
       .get<InternshipClassification>(
         `${this.baseUrl}/api/internships/${internshipId}/classification`,
+        { context: this.silentContext() },
       )
       .pipe(catchError((e) => throwError(() => e)));
   }
@@ -365,7 +406,9 @@ export class ApiClient {
 
   getInternshipWorkflow(internshipId: string): Observable<WorkflowInstanceResponse> {
     return this.http
-      .get<WorkflowInstanceResponse>(`${this.baseUrl}/api/internships/${internshipId}/workflow`)
+      .get<WorkflowInstanceResponse>(`${this.baseUrl}/api/internships/${internshipId}/workflow`, {
+        context: this.silentContext(),
+      })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
@@ -404,7 +447,9 @@ export class ApiClient {
   /** Documents attached to an internship (ADMIN/HR/CANDIDATE/SUPERVISOR). */
   listInternshipDocuments(internshipId: string): Observable<InternshipDocumentItem[]> {
     return this.http
-      .get<InternshipDocumentItem[]>(`${this.baseUrl}/api/internships/${internshipId}/documents`)
+      .get<InternshipDocumentItem[]>(`${this.baseUrl}/api/internships/${internshipId}/documents`, {
+        context: this.silentContext(),
+      })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
@@ -439,7 +484,9 @@ export class ApiClient {
   /** Document metadata without content (for preview decisions). */
   getDocumentMetadata(documentId: string): Observable<DocumentFile> {
     return this.http
-      .get<DocumentFile>(`${this.baseUrl}/api/documents/${documentId}`)
+      .get<DocumentFile>(`${this.baseUrl}/api/documents/${documentId}`, {
+        context: this.silentContext(),
+      })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
@@ -586,13 +633,18 @@ export class ApiClient {
     if (query.entityId?.trim()) params = params.set('entityId', query.entityId.trim());
     if (query.actorId?.trim()) params = params.set('actorId', query.actorId.trim());
     return this.http
-      .get<Page<AuditLogEntry>>(`${this.baseUrl}/api/audit`, { params })
+      .get<Page<AuditLogEntry>>(`${this.baseUrl}/api/audit`, {
+        params,
+        context: this.silentContext(),
+      })
       .pipe(catchError((e) => throwError(() => e)));
   }
 
   getAuditEntry(id: string): Observable<AuditLogEntry> {
     return this.http
-      .get<AuditLogEntry>(`${this.baseUrl}/api/audit/${id}`)
+      .get<AuditLogEntry>(`${this.baseUrl}/api/audit/${id}`, {
+        context: this.silentContext(),
+      })
       .pipe(catchError((e) => throwError(() => e)));
   }
 }

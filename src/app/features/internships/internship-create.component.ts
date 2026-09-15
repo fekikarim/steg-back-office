@@ -9,6 +9,7 @@ import { ApiClient } from '../../core/api-client.service';
 import { InternshipService } from './internship.service';
 import { ToastService } from '../../shared/ui/toast.service';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { LiveStatusComponent } from '../../shared/ui/live-status.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { AlertComponent } from '../../shared/ui/alert.component';
 import { TabsComponent } from '../../shared/ui/tabs.component';
@@ -28,6 +29,7 @@ import type { ApplicationDetail, CandidateSummary } from '../../core/api-models'
     RouterLink,
     FormsModule,
     PageHeaderComponent,
+    LiveStatusComponent,
     SkeletonComponent,
     AlertComponent,
     TabsComponent,
@@ -38,6 +40,7 @@ import type { ApplicationDetail, CandidateSummary } from '../../core/api-models'
       [title]="i18n.t('internshipCreate.title')"
       [subtitle]="i18n.t('internshipCreate.subtitle')"
     >
+      <st-live-status />
       <a routerLink="/internships" class="st-btn st-btn--secondary">{{ i18n.t('common.back') }}</a>
     </st-page-header>
 

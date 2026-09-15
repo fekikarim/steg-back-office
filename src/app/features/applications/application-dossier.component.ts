@@ -1,12 +1,15 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { I18nService } from '../../core/i18n.service';
 import { BreadcrumbService } from '../../core/breadcrumb.service';
 import { AuthService } from '../../core/auth.service';
+import { RealtimeService } from '../../core/realtime.service';
 import { ToastService } from '../../shared/ui/toast.service';
 import { ApplicationReviewService, type DossierBundle } from './application-review.service';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { LiveStatusComponent } from '../../shared/ui/live-status.component';
 import { BadgeComponent, type BadgeTone } from '../../shared/ui/badge.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { EmptyStateComponent, ErrorStateComponent } from '../../shared/ui/states.component';
@@ -31,6 +34,7 @@ type ReasonKind = 'reject' | 'correct' | 'accept-note' | 'verify';
     RouterLink,
     FormsModule,
     PageHeaderComponent,
+    LiveStatusComponent,
     BadgeComponent,
     SkeletonComponent,
     EmptyStateComponent,
@@ -61,6 +65,7 @@ type ReasonKind = 'reject' | 'correct' | 'accept-note' | 'verify';
         [title]="dossier.application.reference"
         [subtitle]="dossier.application.candidateName"
       >
+        <st-live-status />
         <a routerLink="/applications" class="st-btn st-btn--secondary">{{
           i18n.t('common.back')
         }}</a>
@@ -586,6 +591,8 @@ export class ApplicationDossierComponent implements OnInit {
   readonly auth = inject(AuthService);
   private readonly crumbs = inject(BreadcrumbService);
   private readonly service = inject(ApplicationReviewService);
+  private readonly realtime = inject(RealtimeService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly toast = inject(ToastService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -645,6 +652,11 @@ export class ApplicationDossierComponent implements OnInit {
       { labelKey: 'dossier.title', labelFallback: 'Dossier' },
     ]);
     this.load();
+    // Real-time: refresh dossier when its application is updated elsewhere (no refresh button needed)
+    this.realtime.applicationUpdates$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((e) => {
+      const currentId = this.route.snapshot.paramMap.get('id');
+      if (!e.entityId || e.entityId === currentId) this.load();
+    });
   }
 
   load(): void {
