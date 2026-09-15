@@ -64,11 +64,39 @@ function bundle(status: 'PLANNED' | 'ACTIVE' | 'COMPLETED'): InternshipBundle {
       },
     ],
     workflow: null,
+    documents: [],
     actions: [],
     actionsRestricted: false,
   };
 }
 
+function doc(
+  id: string,
+  type: 'INTERNSHIP_APPLICATION' | 'STEG_INTERNSHIP_REPORT' | 'CIN_COPY',
+  restricted: boolean,
+): InternshipBundle['documents'][number] {
+  return {
+    id,
+    internshipId: 'i1',
+    document: {
+      id: `doc-${id}`,
+      reference: `DOC-${id}`,
+      type,
+      restrictedAccess: restricted,
+      generatedAutomatically: false,
+      latestVersionNumber: 1,
+      originalFileName: `${id}.pdf`,
+      mimeType: 'application/pdf',
+      sizeBytes: 1024,
+      checksum: 'abc',
+      uploadedAt: '2026-06-01T00:00:00Z',
+      createdAt: '2026-06-01T00:00:00Z',
+    },
+    mandatory: true,
+    generatedAutomatically: false,
+    createdAt: '2026-06-01T00:00:00Z',
+  };
+}
 describe('InternshipDetailComponent', () => {
   async function setup(role: 'HR' | 'SUPERVISOR', status: 'PLANNED' | 'ACTIVE' | 'COMPLETED') {
     const calls: { method: string; args: unknown[] }[] = [];
@@ -126,6 +154,11 @@ describe('InternshipDetailComponent', () => {
               return of({ id: 'cert-1', reference: 'CERT-1', status: 'GENERATED' });
             },
             downloadCertificate: () => of(new Blob()),
+            uploadThenAttach: (_id: unknown, type: unknown, file: unknown, mandatory: unknown) => {
+              calls.push({ method: 'uploadThenAttach', args: [_id, type, file, mandatory] });
+              return of({ id: 'ad-9' });
+            },
+            downloadDocument: () => of(new Blob()),
           },
         },
       ],
@@ -252,5 +285,101 @@ describe('InternshipDetailComponent', () => {
     component.doConfirm();
     const toasts = TestBed.inject(ToastService).toasts();
     expect(toasts.some((t) => t.kind === 'error')).toBe(true);
+  });
+
+  it('groups documents and gates restricted downloads without the explicit permission', async () => {
+    await TestBed.resetTestingModule();
+    const docs = [
+      doc('ad-1', 'INTERNSHIP_APPLICATION', false),
+      doc('ad-2', 'STEG_INTERNSHIP_REPORT', false),
+      doc('ad-3', 'CIN_COPY', true),
+    ];
+    await TestBed.configureTestingModule({
+      imports: [InternshipDetailComponent],
+      providers: [
+        provideRouter([
+          { path: 'dashboard', component: StubComponent },
+          { path: 'internships', component: StubComponent },
+        ]),
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: { get: () => 'i1' } } },
+        },
+        {
+          provide: InternshipService,
+          useValue: {
+            loadBundle: () => of({ ...bundle('COMPLETED'), documents: docs }),
+            downloadDocument: () => of(new Blob()),
+            uploadThenAttach: () => of({ id: 'ad-9' }),
+          },
+        },
+      ],
+    }).compileComponents();
+    // HR lacks DOCUMENT_VIEW_RESTRICTED.
+    TestBed.inject(AuthService).signInDemo('rh@steg.tn', 'HR');
+    TestBed.inject(I18nService).setLocale('en');
+    const fixture = TestBed.createComponent(InternshipDetailComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const component = fixture.componentInstance;
+    component.tab.set('documents');
+    fixture.detectChanges();
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Required pieces');
+    expect(text).toContain('Restricted access');
+    const buttons = [...fixture.nativeElement.querySelectorAll('.st-docrow__actions button')];
+    const restrictedRow = buttons.filter((b: HTMLButtonElement) =>
+      b.closest('.st-docrow--restricted'),
+    );
+    expect(restrictedRow.length).toBeGreaterThan(0);
+    for (const b of restrictedRow) expect(b.disabled).toBe(true);
+    // Checklist: required set is incomplete (assignment letter missing).
+    expect(
+      component
+        .checklist(fixture.componentInstance.bundle()!)
+        .find((c) => c.key === 'internshipDocs.checkRequiredDocs')?.met,
+    ).toBe(false);
+  });
+
+  it('validates upload size locally and chains upload into attach', async () => {
+    const { fixture, calls } = await setup('HR', 'ACTIVE');
+    const component = fixture.componentInstance;
+    const big = new File([new ArrayBuffer(26 * 1024 * 1024)], 'big.pdf', {
+      type: 'application/pdf',
+    });
+    const input = document.createElement('input');
+    Object.defineProperty(input, 'files', { value: [big] });
+    component.onUploadFile({ target: input } as unknown as Event);
+    expect(component.uploadError()).toBeTruthy();
+    expect(component.uploadFile).toBeNull();
+
+    const file = new File(['%PDF'], 'report.pdf', { type: 'application/pdf' });
+    const input2 = document.createElement('input');
+    Object.defineProperty(input2, 'files', { value: [file] });
+    component.onUploadFile({ target: input2 } as unknown as Event);
+    component.uploadType = 'STEG_INTERNSHIP_REPORT';
+    component.uploadMandatory = true;
+    component.submitUpload();
+    const upload = calls.find((c) => c.method === 'uploadThenAttach');
+    expect(upload?.args).toEqual(['i1', 'STEG_INTERNSHIP_REPORT', file, true]);
+  });
+
+  it('prints the completion summary without touching PDF content', async () => {
+    const { fixture } = await setup('HR', 'COMPLETED');
+    const component = fixture.componentInstance;
+    component.tab.set('documents');
+    fixture.detectChanges();
+    let printed = false;
+    const original = window.print;
+    Object.defineProperty(window, 'print', { value: () => (printed = true), configurable: true });
+    try {
+      component.printSummary();
+      expect(printed).toBe(true);
+      expect(document.body.classList.contains('st-printing-summary')).toBe(true);
+      expect(fixture.nativeElement.querySelector('.st-print-only')).toBeTruthy();
+    } finally {
+      Object.defineProperty(window, 'print', { value: original, configurable: true });
+      document.body.classList.remove('st-printing-summary');
+    }
   });
 });

@@ -32,6 +32,10 @@ import type {
   Department,
   Employee,
   CertificateInfo,
+  InternshipDocumentItem,
+  AttachInternshipDocumentBody,
+  DocumentType,
+  DocumentFile,
 } from './api-models';
 
 /**
@@ -382,6 +386,50 @@ export class ApiClient {
   listEmployees(): Observable<Employee[]> {
     return this.http
       .get<Employee[]>(`${this.baseUrl}/api/employees`)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /* -------- Phase C4 — internship document workspace -------- */
+
+  /** Documents attached to an internship (ADMIN/HR/CANDIDATE/SUPERVISOR). */
+  listInternshipDocuments(internshipId: string): Observable<InternshipDocumentItem[]> {
+    return this.http
+      .get<InternshipDocumentItem[]>(`${this.baseUrl}/api/internships/${internshipId}/documents`)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /**
+   * Staff upload (any authenticated user; backend validates MIME/size/content
+   * and returns metadata including restrictedAccess). Raw bytes never touch
+   * application state beyond the upload call.
+   */
+  uploadDocument(type: DocumentType, file: File): Observable<DocumentFile> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    return this.http
+      .post<DocumentFile>(`${this.baseUrl}/api/documents`, form, {
+        params: new HttpParams().set('type', type),
+      })
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Attach an uploaded document to an internship (ADMIN/HR). */
+  attachInternshipDocument(
+    internshipId: string,
+    body: AttachInternshipDocumentBody,
+  ): Observable<InternshipDocumentItem> {
+    return this.http
+      .post<InternshipDocumentItem>(
+        `${this.baseUrl}/api/internships/${internshipId}/documents`,
+        body,
+      )
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Document metadata without content (for preview decisions). */
+  getDocumentMetadata(documentId: string): Observable<DocumentFile> {
+    return this.http
+      .get<DocumentFile>(`${this.baseUrl}/api/documents/${documentId}`)
       .pipe(catchError((e) => throwError(() => e)));
   }
 }

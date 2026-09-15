@@ -50,6 +50,7 @@ describe('InternshipService', () => {
             getCandidate: () => of(null),
             getClassification: () => of(null),
             listAssignments: () => of([]),
+            listInternshipDocuments: () => of([]),
             getInternshipWorkflow: () => of(null),
             listWorkflowActions: () => of([]),
             executeInternshipTransition: () => of({ id: 'act-1' }),
@@ -107,5 +108,42 @@ describe('InternshipService', () => {
     service.loadAssignmentMap(['ok', 'bad']).subscribe((m) => (map = m));
     expect(map.get('ok')?.length).toBe(1);
     expect(map.get('bad')).toEqual([]);
+  });
+
+  it('loads internship documents into the bundle and tolerates denial', async () => {
+    const docs = [{ id: 'ad-1' }];
+    const service = setup({ listInternshipDocuments: () => of(docs) });
+    let bundle!: InternshipBundle;
+    service.loadBundle('i1').subscribe((b) => (bundle = b));
+    expect(bundle.documents).toEqual(docs);
+
+    await TestBed.resetTestingModule();
+    const denied = setup({ listInternshipDocuments: () => throwError(() => httpError(403)) });
+    let fallback!: InternshipBundle;
+    denied.loadBundle('i1').subscribe((b) => (fallback = b));
+    expect(fallback.documents).toEqual([]);
+    expect(fallback.internship.reference).toBe('STAGE-2026-0001');
+  });
+
+  it('chains upload metadata into the attach call', () => {
+    const seen: { upload: unknown[]; attach: unknown[] } = { upload: [], attach: [] };
+    const service = setup({
+      uploadDocument: (type: unknown, file: unknown) => {
+        seen.upload.push([type, file]);
+        return of({ id: 'doc-9' });
+      },
+      attachInternshipDocument: (id: unknown, body: unknown) => {
+        seen.attach.push([id, body]);
+        return of({ id: 'ad-9' });
+      },
+    });
+    const file = new File(['x'], 'report.pdf', { type: 'application/pdf' });
+    let result!: unknown;
+    service
+      .uploadThenAttach('i1', 'STEG_INTERNSHIP_REPORT', file, true)
+      .subscribe((r) => (result = r));
+    expect(seen.upload).toEqual([['STEG_INTERNSHIP_REPORT', file]]);
+    expect(seen.attach).toEqual([['i1', { documentId: 'doc-9', mandatory: true }]]);
+    expect(result).toEqual({ id: 'ad-9' });
   });
 });

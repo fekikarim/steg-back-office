@@ -44,6 +44,9 @@ const PATHS: Record<string, string> = {
     '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
   collapse: '<path d="M4 6h16M4 12h10M4 18h16"/><path d="m17 10 3 2-3 2"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  upload: '<path d="M12 15V3M7 8l5-5 5 5"/><path d="M4 21h16"/>',
+  print:
+    '<path d="M7 8V3h10v5"/><rect x="4" y="8" width="16" height="9" rx="2"/><path d="M7 14h10v7H7z"/>',
 };
 
 @Component({

@@ -9,6 +9,8 @@ import type {
   InternshipCreateFromApplicationRequest,
   InternshipCreateManualRequest,
   InternshipUpdateDatesRequest,
+  InternshipDocumentItem,
+  DocumentType,
   CandidateDetail,
   CertificateInfo,
   Department,
@@ -22,6 +24,7 @@ export interface InternshipBundle {
   readonly candidate: CandidateDetail | null;
   readonly classification: InternshipClassification | null;
   readonly assignments: readonly InternshipAssignment[];
+  readonly documents: readonly InternshipDocumentItem[];
   readonly workflow: WorkflowInstanceResponse | null;
   readonly actions: readonly WorkflowActionResponse[];
   /** True when the workflow history endpoint denied access (staff scope). */
@@ -51,15 +54,17 @@ export class InternshipService {
           candidate: this.api.getCandidate(internship.candidateId).pipe(catchError(() => of(null))),
           classification: this.api.getClassification(internshipId).pipe(catchError(() => of(null))),
           assignments: this.api.listAssignments(internshipId).pipe(catchError(() => of([]))),
+          documents: this.api.listInternshipDocuments(internshipId).pipe(catchError(() => of([]))),
           workflow: this.api.getInternshipWorkflow(internshipId).pipe(catchError(() => of(null))),
         }).pipe(
-          switchMap(({ candidate, classification, assignments, workflow }) => {
+          switchMap(({ candidate, classification, assignments, documents, workflow }) => {
             if (!workflow) {
               return of({
                 internship,
                 candidate,
                 classification,
                 assignments,
+                documents,
                 workflow,
                 actions: [],
                 actionsRestricted: false,
@@ -71,6 +76,7 @@ export class InternshipService {
                 candidate,
                 classification,
                 assignments,
+                documents,
                 workflow,
                 actions,
                 actionsRestricted: false,
@@ -82,6 +88,7 @@ export class InternshipService {
                     candidate,
                     classification,
                     assignments,
+                    documents,
                     workflow,
                     actions: [],
                     actionsRestricted: true,
@@ -162,6 +169,30 @@ export class InternshipService {
 
   downloadCertificate(certificateId: string): Observable<Blob> {
     return this.api.downloadCertificate(certificateId);
+  }
+
+  /**
+   * Staff upload-then-attach (ADMIN/HR for the attach step). The upload
+   * returns backend-validated metadata; the attach links it to the internship.
+   */
+  uploadThenAttach(
+    internshipId: string,
+    type: DocumentType,
+    file: File,
+    mandatory: boolean,
+  ): Observable<InternshipDocumentItem> {
+    return this.api.uploadDocument(type, file).pipe(
+      switchMap((meta) =>
+        this.api.attachInternshipDocument(internshipId, {
+          documentId: meta.id,
+          mandatory,
+        }),
+      ),
+    );
+  }
+
+  downloadDocument(documentId: string, restricted: boolean): Observable<Blob> {
+    return this.api.downloadDocument(documentId, restricted);
   }
 }
 

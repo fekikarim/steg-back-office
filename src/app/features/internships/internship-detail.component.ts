@@ -5,7 +5,12 @@ import { I18nService } from '../../core/i18n.service';
 import { BreadcrumbService } from '../../core/breadcrumb.service';
 import { AuthService } from '../../core/auth.service';
 import { ToastService } from '../../shared/ui/toast.service';
-import { InternshipService, InternshipBundle, activeAssignment } from './internship.service';
+import {
+  InternshipService,
+  InternshipBundle,
+  activeAssignment,
+  isForbidden,
+} from './internship.service';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 import { BadgeComponent, type BadgeTone } from '../../shared/ui/badge.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
@@ -18,8 +23,11 @@ import type {
   Department,
   Employee,
   InternshipAssignment,
+  InternshipDocumentItem,
+  DocumentType,
   CertificateInfo,
 } from '../../core/api-models';
+import { INTERNSHIP_UPLOAD_TYPES, REQUIRED_DOSSIER_TYPES } from '../../core/api-models';
 
 /**
  * Internship detail: backend-computed classification shown read-only,
@@ -119,7 +127,13 @@ import type {
         />
       </p>
 
-      <st-tabs [tabs]="tabs()" [activeId]="tab()" label="Internship" (select)="tab.set($event)" />
+      <st-tabs
+        [tabs]="tabs()"
+        [activeId]="tab()"
+        label="Internship"
+        (select)="tab.set($event)"
+        class="st-no-print"
+      />
 
       @if (tab() === 'overview') {
         <div class="st-grid">
@@ -290,6 +304,138 @@ import type {
                 </tbody>
               </table>
             </div>
+          }
+        </section>
+      }
+
+      @if (tab() === 'documents') {
+        <section class="st-card" [attr.aria-label]="i18n.t('internshipDocs.checklistTitle')">
+          <div class="st-card__head">
+            <h2 class="st-card__title">{{ i18n.t('internshipDocs.checklistTitle') }}</h2>
+            <button
+              type="button"
+              class="st-btn st-btn--secondary st-no-print"
+              (click)="printSummary()"
+            >
+              <st-icon name="print" [size]="14" /> {{ i18n.t('internshipDocs.print') }}
+            </button>
+          </div>
+          <p class="st-hint">{{ i18n.t('internshipDocs.checklistHint') }}</p>
+          <ul class="st-checks">
+            @for (item of checklist(dossier); track item.key) {
+              <li class="st-check">
+                <st-badge
+                  [label]="item.met ? i18n.t('common.yes') : i18n.t('common.no')"
+                  [tone]="item.met ? 'success' : 'warning'"
+                />
+                <span>{{ i18n.t(item.key) }}</span>
+              </li>
+            }
+          </ul>
+        </section>
+
+        <section class="st-card" [attr.aria-label]="i18n.t('internshipDocs.title')">
+          <div class="st-card__head">
+            <h2 class="st-card__title">{{ i18n.t('internshipDocs.title') }}</h2>
+            @if (canUpload()) {
+              <button
+                type="button"
+                class="st-btn st-btn--primary st-no-print"
+                (click)="openUpload()"
+              >
+                <st-icon name="upload" [size]="14" /> {{ i18n.t('internshipDocs.upload') }}
+              </button>
+            }
+          </div>
+          @if (dossier.documents.length === 0) {
+            <st-empty-state
+              [title]="i18n.t('common.empty.title')"
+              [body]="i18n.t('internshipDocs.empty')"
+            />
+          } @else {
+            @for (group of groupedDocs(dossier.documents); track group.key) {
+              <h3 class="st-sub">{{ i18n.t(group.key) }}</h3>
+              <ul class="st-docs">
+                @for (item of group.items; track item.id) {
+                  <li
+                    class="st-docrow"
+                    [class.st-docrow--restricted]="item.document.restrictedAccess"
+                  >
+                    <div class="st-docrow__meta">
+                      <strong dir="auto">{{ item.document.originalFileName }}</strong>
+                      <span class="st-docrow__sub" dir="auto">
+                        {{ item.document.type }} · {{ item.document.reference }} ·
+                        {{ formatSize(item.document.sizeBytes) }} ·
+                        {{ item.document.mimeType }}
+                      </span>
+                      <span class="st-docrow__badges">
+                        @if (item.mandatory) {
+                          <st-badge [label]="i18n.t('dossier.mandatory')" tone="info" />
+                        }
+                        @if (item.generatedAutomatically) {
+                          <st-badge [label]="i18n.t('internshipDocs.generated')" tone="neutral" />
+                        }
+                        @if (item.document.restrictedAccess) {
+                          <st-badge
+                            [label]="i18n.t('common.sensitive')"
+                            tone="restricted"
+                            icon="shield"
+                          />
+                        }
+                      </span>
+                    </div>
+                    <div class="st-docrow__actions st-no-print">
+                      <button
+                        type="button"
+                        class="st-btn st-btn--secondary"
+                        [disabled]="isRestrictedBlocked(item) || busyDoc() === item.id + ':preview'"
+                        (click)="openDoc(item, true)"
+                      >
+                        <st-icon name="eye" [size]="14" /> {{ i18n.t('common.preview') }}
+                      </button>
+                      <button
+                        type="button"
+                        class="st-btn st-btn--secondary"
+                        [disabled]="
+                          isRestrictedBlocked(item) || busyDoc() === item.id + ':download'
+                        "
+                        (click)="openDoc(item, false)"
+                      >
+                        <st-icon name="download" [size]="14" /> {{ i18n.t('common.download') }}
+                      </button>
+                    </div>
+                  </li>
+                }
+              </ul>
+            }
+          }
+          @if (docForbiddenNote()) {
+            <st-alert tone="warning">{{ i18n.t('internshipDocs.restrictedBlocked') }}</st-alert>
+          }
+          <p class="st-hint">{{ i18n.t('internshipDocs.verifyNote') }}</p>
+        </section>
+
+        <!-- Print-only completion summary: references only, never PDF content. -->
+        <section class="st-print-only" aria-label="print summary">
+          <h2>{{ dossier.internship.reference }}</h2>
+          <p dir="auto">{{ dossier.internship.candidateFullName }}</p>
+          <p dir="ltr">{{ dossier.internship.startDate }} → {{ dossier.internship.endDate }}</p>
+          <p>
+            {{ dossier.internship.type }} · {{ dossier.internship.requirement }} ·
+            {{ dossier.internship.status }}
+          </p>
+          <ul>
+            @for (item of checklist(dossier); track item.key) {
+              <li>{{ item.met ? '[x]' : '[ ]' }} {{ i18n.t(item.key) }}</li>
+            }
+          </ul>
+          <ul>
+            @for (item of dossier.documents; track item.id) {
+              <li dir="auto">{{ item.document.type }} · {{ item.document.reference }}</li>
+            }
+          </ul>
+          @if (certificate(); as cert) {
+            <p dir="ltr">{{ cert.reference }} · {{ cert.status }}</p>
           }
         </section>
       }
@@ -488,6 +634,49 @@ import type {
         (confirmed)="doConfirm()"
         (cancel)="confirmAction.set(null)"
       />
+
+      <!-- Staff upload + attach -->
+      <st-dialog
+        [open]="uploadOpen()"
+        [title]="i18n.t('internshipDocs.uploadTitle')"
+        (close)="uploadOpen.set(false)"
+      >
+        <p class="st-hint">{{ i18n.t('internshipDocs.uploadHint') }}</p>
+        <div class="st-grid2">
+          <label class="st-field">
+            <span class="st-field__label">{{ i18n.t('internshipDocs.docType') }} *</span>
+            <select class="st-input" [(ngModel)]="uploadType">
+              @for (t of uploadTypes; track t) {
+                <option [value]="t">{{ t }}</option>
+              }
+            </select>
+          </label>
+          <label class="st-field st-field--check">
+            <input type="checkbox" [(ngModel)]="uploadMandatory" />
+            <span>{{ i18n.t('dossier.mandatory') }}</span>
+          </label>
+        </div>
+        <label class="st-field">
+          <span class="st-field__label">{{ i18n.t('internshipDocs.file') }} *</span>
+          <input type="file" class="st-input" (change)="onUploadFile($event)" />
+        </label>
+        @if (uploadError()) {
+          <st-alert tone="error">{{ uploadError() }}</st-alert>
+        }
+        <div slot="footer" class="st-dialog__actions">
+          <button type="button" class="st-btn st-btn--secondary" (click)="uploadOpen.set(false)">
+            {{ i18n.t('common.cancel') }}
+          </button>
+          <button
+            type="button"
+            class="st-btn st-btn--primary"
+            [disabled]="busy() || !uploadFile"
+            (click)="submitUpload()"
+          >
+            {{ i18n.t('internshipDocs.attach') }}
+          </button>
+        </div>
+      </st-dialog>
     }
   `,
   styles: [
@@ -662,6 +851,74 @@ import type {
         gap: 0.5rem;
         justify-content: flex-end;
       }
+      .st-checks {
+        list-style: none;
+        margin: 0.6rem 0 0;
+        padding: 0;
+        display: grid;
+        gap: 0.45rem;
+      }
+      .st-check {
+        display: flex;
+        gap: 0.55rem;
+        align-items: center;
+        font-size: 0.85rem;
+      }
+      .st-docs {
+        list-style: none;
+        margin: 0.4rem 0 0;
+        padding: 0;
+        display: grid;
+        gap: 0.6rem;
+      }
+      .st-docrow {
+        display: flex;
+        gap: 0.7rem;
+        justify-content: space-between;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        border: 1px solid var(--border-subtle);
+        border-radius: 0.6rem;
+        padding: 0.7rem 0.8rem;
+      }
+      .st-docrow--restricted {
+        border-color: color-mix(in srgb, var(--action-danger) 45%, transparent);
+      }
+      .st-docrow__meta {
+        display: grid;
+        gap: 0.25rem;
+        flex: 1;
+        min-inline-size: 14rem;
+        font-size: 0.85rem;
+      }
+      .st-docrow__sub {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        overflow-wrap: anywhere;
+      }
+      .st-docrow__badges {
+        display: flex;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+      }
+      .st-docrow__actions {
+        display: flex;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+      }
+      .st-field--check {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .st-field--check input {
+        inline-size: 1.1rem;
+        block-size: 1.1rem;
+      }
+      .st-print-only {
+        display: none;
+      }
       @media (max-width: 900px) {
         .st-grid,
         .st-grid2 {
@@ -707,6 +964,15 @@ export class InternshipDetailComponent implements OnInit {
   readonly confirmAction = signal<'activate' | 'complete' | 'cancel' | 'certificate' | null>(null);
   readonly certificate = signal<CertificateInfo | null>(null);
 
+  readonly uploadOpen = signal(false);
+  readonly uploadError = signal('');
+  readonly uploadTypes = INTERNSHIP_UPLOAD_TYPES;
+  uploadType: DocumentType = 'STEG_INTERNSHIP_REPORT';
+  uploadMandatory = false;
+  uploadFile: File | null = null;
+  readonly docForbiddenNote = signal(false);
+  readonly busyDoc = signal<string | null>(null);
+
   currentAssignment(): InternshipAssignment | null {
     const bundle = this.bundle();
     return bundle ? activeAssignment(bundle.assignments) : null;
@@ -728,6 +994,11 @@ export class InternshipDetailComponent implements OnInit {
         id: 'assignment',
         label: this.i18n.t('internshipDetail.tabAssignment'),
         count: bundle?.assignments.length,
+      },
+      {
+        id: 'documents',
+        label: this.i18n.t('internshipDetail.tabDocuments'),
+        count: bundle?.documents.length,
       },
       {
         id: 'timeline',
@@ -961,6 +1232,163 @@ export class InternshipDetailComponent implements OnInit {
         this.toast.show('error', actionErrorMessage(e, this.i18n));
       },
     });
+  }
+
+  /* ---------------- Documents tab ---------------- */
+
+  canUpload(): boolean {
+    return this.auth.hasPermission('INTERNSHIP_ASSIGN');
+  }
+
+  canViewRestrictedDocs(): boolean {
+    return this.auth.hasPermission('DOCUMENT_VIEW_RESTRICTED');
+  }
+
+  isRestrictedBlocked(item: InternshipDocumentItem): boolean {
+    return item.document.restrictedAccess && !this.canViewRestrictedDocs();
+  }
+
+  /** Presence-only checklist from backend-exposed prerequisites (finance decides). */
+  checklist(bundle: InternshipBundle): { key: string; met: boolean }[] {
+    const present = new Set(bundle.documents.map((d) => d.document.type));
+    return [
+      { key: 'internshipDocs.checkCompleted', met: bundle.internship.status === 'COMPLETED' },
+      { key: 'internshipDocs.checkAssignment', met: activeAssignment(bundle.assignments) !== null },
+      {
+        key: 'internshipDocs.checkRequiredDocs',
+        met: REQUIRED_DOSSIER_TYPES.every((t) => present.has(t)),
+      },
+      { key: 'internshipDocs.checkEligible', met: bundle.internship.paymentEligible },
+      { key: 'internshipDocs.checkCertificate', met: this.certificate() !== null },
+    ];
+  }
+
+  groupedDocs(
+    documents: readonly InternshipDocumentItem[],
+  ): { key: string; items: InternshipDocumentItem[] }[] {
+    const groups: { key: string; items: InternshipDocumentItem[] }[] = [
+      { key: 'internshipDocs.groupRestricted', items: [] },
+      { key: 'internshipDocs.groupRequired', items: [] },
+      { key: 'internshipDocs.groupReports', items: [] },
+      { key: 'internshipDocs.groupCertificates', items: [] },
+      { key: 'internshipDocs.groupOther', items: [] },
+    ];
+    for (const item of documents) {
+      const type = item.document.type;
+      if (item.document.restrictedAccess) groups[0]?.items.push(item);
+      else if ((REQUIRED_DOSSIER_TYPES as readonly string[]).includes(type))
+        groups[1]?.items.push(item);
+      else if (
+        type === 'STEG_INTERNSHIP_REPORT' ||
+        type === 'CAHIER_DES_CHARGES' ||
+        type === 'PROJECT_DEMO_IMAGE'
+      )
+        groups[2]?.items.push(item);
+      else if (
+        type === 'INTERNSHIP_CERTIFICATE' ||
+        type === 'INTERNSHIP_LOGBOOK' ||
+        type === 'INTERNSHIP_CONVENTION'
+      )
+        groups[3]?.items.push(item);
+      else groups[4]?.items.push(item);
+    }
+    return groups.filter((g) => g.items.length > 0);
+  }
+
+  openUpload(): void {
+    this.uploadType = 'STEG_INTERNSHIP_REPORT';
+    this.uploadMandatory = false;
+    this.uploadFile = null;
+    this.uploadError.set('');
+    this.uploadOpen.set(true);
+  }
+
+  onUploadFile(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0] ?? null;
+    this.uploadError.set('');
+    if (!file) {
+      this.uploadFile = null;
+      return;
+    }
+    // Indicative client pre-check only (25 MB); backend validates MIME/size/content.
+    if (file.size > 25 * 1024 * 1024) {
+      this.uploadError.set(this.i18n.t('internshipDocs.fileTooLarge'));
+      this.uploadFile = null;
+      return;
+    }
+    this.uploadFile = file;
+  }
+
+  submitUpload(): void {
+    const id = this.bundle()?.internship.id;
+    const file = this.uploadFile;
+    if (!id || !file) return;
+    this.busy.set(true);
+    this.service.uploadThenAttach(id, this.uploadType, file, this.uploadMandatory).subscribe({
+      next: () => {
+        this.busy.set(false);
+        this.uploadOpen.set(false);
+        this.toast.show('success', this.i18n.t('internshipDocs.uploaded'));
+        this.load();
+      },
+      error: (e: unknown) => {
+        this.busy.set(false);
+        this.uploadError.set(actionErrorMessage(e, this.i18n));
+      },
+    });
+  }
+
+  openDoc(item: InternshipDocumentItem, preview: boolean): void {
+    if (this.isRestrictedBlocked(item)) {
+      this.docForbiddenNote.set(true);
+      return;
+    }
+    const tag = `${item.id}:${preview ? 'preview' : 'download'}`;
+    this.busyDoc.set(tag);
+    this.service.downloadDocument(item.document.id, item.document.restrictedAccess).subscribe({
+      next: (blob) => {
+        this.busyDoc.set(null);
+        const url = URL.createObjectURL(blob);
+        if (preview) {
+          window.open(url, '_blank', 'noopener');
+          window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        } else {
+          const anchor = document.createElement('a');
+          anchor.href = url;
+          anchor.download = item.document.originalFileName || `${item.document.reference}.pdf`;
+          anchor.click();
+          window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        }
+      },
+      error: (e: unknown) => {
+        this.busyDoc.set(null);
+        if (isForbidden(e)) {
+          this.docForbiddenNote.set(true);
+          this.toast.show('error', this.i18n.t('internshipDocs.restrictedBlocked'));
+        } else {
+          this.toast.show('error', actionErrorMessage(e, this.i18n));
+        }
+      },
+    });
+  }
+
+  printSummary(): void {
+    document.body.classList.add('st-printing-summary');
+    const done = (): void => {
+      document.body.classList.remove('st-printing-summary');
+      window.removeEventListener('afterprint', done);
+    };
+    window.addEventListener('afterprint', done);
+    window.print();
+    // Fallback for browsers without afterprint.
+    window.setTimeout(() => document.body.classList.remove('st-printing-summary'), 2000);
+  }
+
+  formatSize(bytes: number): string {
+    if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(1)} MB`;
+    if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+    return `${bytes} B`;
   }
 
   statusTone(status: string): BadgeTone {

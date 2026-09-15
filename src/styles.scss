@@ -250,3 +250,23 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Document-oriented printing: only active while a completion summary prints. */
+@media print {
+  body.st-printing-summary st-sidebar,
+  body.st-printing-summary st-topbar,
+  body.st-printing-summary st-breadcrumbs,
+  body.st-printing-summary st-toasts,
+  body.st-printing-summary st-dialog,
+  body.st-printing-summary .st-no-print,
+  body.st-printing-summary .st-pagehead__actions {
+    display: none !important;
+  }
+  body.st-printing-summary .st-print-only {
+    display: block !important;
+  }
+  body.st-printing-summary .st-card {
+    break-inside: avoid;
+    border: 1px solid #999;
+  }
+}

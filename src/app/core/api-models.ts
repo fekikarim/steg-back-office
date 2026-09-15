@@ -474,6 +474,48 @@ export interface CertificateInfo {
   readonly issueDate: string;
 }
 
+/* ------------------------------------------------------------------ */
+/* Phase C4 — internship document workspace contracts.                 */
+/* Mirrors steg-backend/docs/openapi.json. Verification support varies */
+/* per context (application docs: yes; internship docs: read-only);    */
+/* the client never invents verification semantics.                    */
+/* ------------------------------------------------------------------ */
+
+/** GET /api/internships/{id}/documents item. No verification fields by contract. */
+export interface InternshipDocumentItem {
+  readonly id: string;
+  readonly internshipId: string;
+  readonly document: DocumentFile;
+  readonly mandatory: boolean;
+  readonly generatedAutomatically: boolean;
+  readonly createdAt: string;
+}
+
+/** POST /api/internships/{id}/documents body. */
+export interface AttachInternshipDocumentBody {
+  readonly documentId: string;
+  readonly mandatory?: boolean;
+}
+
+/** Document types staff may upload into an internship dossier. */
+export const INTERNSHIP_UPLOAD_TYPES: readonly DocumentType[] = [
+  'INTERNSHIP_APPLICATION',
+  'ASSIGNMENT_LETTER',
+  'STEG_INTERNSHIP_REPORT',
+  'CAHIER_DES_CHARGES',
+  'PROJECT_DEMO_IMAGE',
+  'INTERNSHIP_CONVENTION',
+  'CIN_COPY',
+  'OTHER',
+];
+
+/** Dossier completeness expectations (presence only — finance decides). */
+export const REQUIRED_DOSSIER_TYPES: readonly DocumentType[] = [
+  'INTERNSHIP_APPLICATION',
+  'ASSIGNMENT_LETTER',
+  'STEG_INTERNSHIP_REPORT',
+];
+
 /** Backend error → user-safe message mapping (no stack traces, no secrets). */
 export function toUserMessage(error: unknown): string {
   if (typeof error === 'object' && error !== null && 'error' in error) {
