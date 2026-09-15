@@ -1,13 +1,37 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>StegBackOffice</title>
-  <base href="/">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
-</head>
-<body>
-  <app-root></app-root>
-</body>
+<html lang="fr" dir="ltr" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <title>STEG Back Office</title>
+    <base href="/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="STEG Back Office — institutional staff workspace for internship administration."
+    />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <link rel="apple-touch-icon" href="logo/apple-touch-icon.png" />
+    <link rel="manifest" href="logo/site.webmanifest" />
+    <script>
+      // No-flash theme + locale before Angular boots.
+      try {
+        var t = localStorage.getItem('steg-bo-theme');
+        var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute(
+          'data-theme',
+          t === 'dark' || (t !== 'light' && t !== 'system' && dark) || (t === 'system' && dark)
+            ? 'dark'
+            : 'light',
+        );
+        var l = localStorage.getItem('steg-bo-locale');
+        if (l === 'ar' || l === 'en' || l === 'fr') {
+          document.documentElement.lang = l;
+          document.documentElement.dir = l === 'ar' ? 'rtl' : 'ltr';
+        }
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <app-root></app-root>
+  </body>
 </html>

@@ -1,1 +1,252 @@
-/* You can add global styles to this file, and also import other style files */
+/* STEG Back Office — institutional design system.
+   Semantic tokens per UI_UX.md. Restrained presentation vs Front Office.
+   Logical properties throughout for true RTL. */
+
+:root,
+[data-theme='light'] {
+  --brand-primary: #0b61a0;
+  --brand-primary-hover: #084e82;
+  --brand-red: #d32325;
+  --brand-red-dark: #b02927;
+  --brand-navy: #042843;
+
+  --bg-page: #f2f4f7;
+  --bg-surface: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-inverse: #0a3053;
+
+  --text-primary: #10233a;
+  --text-secondary: #45566b;
+  --text-muted: #6b7d90;
+  --text-inverse: #f4f7fa;
+  --text-disabled: #9aa7b5;
+
+  --border-subtle: #e2e8ef;
+  --border-default: #cbd5e0;
+  --border-strong: #93a3b5;
+
+  --action-primary: #0b61a0;
+  --action-primary-hover: #084e82;
+  --action-secondary: #eef2f6;
+  --action-danger: #b02927;
+  --action-success: #1c7a3d;
+
+  --status-info: #0b61a0;
+  --status-success: #1c7a3d;
+  --status-warning: #9a6200;
+  --status-error: #b02927;
+
+  --shadow-md: 0 8px 24px rgb(4 40 67 / 0.12);
+  --radius: 0.6rem;
+}
+
+[data-theme='dark'] {
+  --brand-primary: #4da3e0;
+  --brand-primary-hover: #6db4e6;
+  --brand-red: #e5605f;
+  --brand-red-dark: #d14a49;
+  --brand-navy: #0a3053;
+
+  --bg-page: #0b1b2c;
+  --bg-surface: #10263c;
+  --bg-elevated: #14304b;
+  --bg-inverse: #081c30;
+
+  --text-primary: #e8eef4;
+  --text-secondary: #b8c6d4;
+  --text-muted: #8fa1b3;
+  --text-inverse: #eef3f7;
+  --text-disabled: #5f7285;
+
+  --border-subtle: #1e3a54;
+  --border-default: #2c4a66;
+  --border-strong: #3d5f7f;
+
+  --action-primary: #4da3e0;
+  --action-primary-hover: #6db4e6;
+  --action-secondary: #1a3a56;
+  --action-danger: #e5605f;
+  --action-success: #4caf7d;
+
+  --status-info: #4da3e0;
+  --status-success: #4caf7d;
+  --status-warning: #d9a441;
+  --status-error: #e5605f;
+
+  --shadow-md: 0 8px 24px rgb(0 0 0 / 0.45);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', 'Noto Sans', 'Noto Sans Arabic', Tahoma, Arial, sans-serif;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.55;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+[dir='rtl'] body,
+[lang='ar'] body {
+  line-height: 1.7;
+}
+
+:focus-visible {
+  outline: 2px solid var(--action-primary);
+  outline-offset: 2px;
+}
+
+.st-sr-only {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.st-skip {
+  position: absolute;
+  inset-block-start: -3rem;
+  inset-inline-start: 1rem;
+  z-index: 300;
+  background: var(--bg-inverse);
+  color: var(--text-inverse);
+  padding: 0.5rem 0.9rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  transition: inset-block-start 0.15s ease;
+}
+
+.st-skip:focus {
+  inset-block-start: 0.5rem;
+}
+
+.st-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  border-radius: 0.55rem;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+  min-block-size: 2.75rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.st-btn--primary {
+  background: var(--action-primary);
+  border-color: var(--action-primary);
+  color: #fff;
+}
+
+.st-btn--primary:hover {
+  background: var(--action-primary-hover);
+}
+
+.st-btn--secondary {
+  background: var(--action-secondary);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+.st-btn--danger {
+  background: var(--action-danger);
+  border-color: var(--action-danger);
+  color: #fff;
+}
+
+.st-btn--text {
+  background: transparent;
+  border-color: transparent;
+  color: var(--action-primary);
+  min-block-size: 2.5rem;
+}
+
+.st-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.st-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-page);
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex: none;
+}
+
+.st-icon-btn:hover {
+  border-color: var(--action-primary);
+  color: var(--action-primary);
+}
+
+.st-icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.st-field {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.st-field__label {
+  font-weight: 600;
+}
+
+.st-field__error {
+  color: var(--status-error);
+  font-size: 0.76rem;
+}
+
+.st-input {
+  font: inherit;
+  font-size: 0.87rem;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 0.55rem;
+  padding: 0.55rem 0.7rem;
+  min-block-size: 2.75rem;
+  inline-size: 100%;
+}
+
+.st-input:focus {
+  outline: none;
+  border-color: var(--action-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--action-primary) 22%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

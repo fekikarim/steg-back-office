@@ -1,12 +1,17 @@
-import { Component, signal } from '@angular/core';
+import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 
 @Component({
   imports: [RouterOutlet],
   selector: 'app-root',
-  styleUrl: './app.scss',
-  templateUrl: './app.html',
+  template: `<router-outlet />`,
+  styles: [
+    `
+      :host {
+        display: block;
+        min-block-size: 100dvh;
+      }
+    `,
+  ],
 })
-export class App {
-  protected readonly title = signal('steg-back-office');
-}
+export class App {}

@@ -6,7 +6,9 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test --watch=false",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.spec.json",
+    "lint": "prettier --check \"src/**/*.{ts,html,scss,json}\" && npm run typecheck"
   },
   "private": true,
   "packageManager": "npm@11.19.0",
