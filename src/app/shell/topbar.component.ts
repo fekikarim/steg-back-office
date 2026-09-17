@@ -1,8 +1,20 @@
-import { Component, Input, Output, EventEmitter, inject } from '@angular/core';
+import {
+  Component,
+  Input,
+  Output,
+  EventEmitter,
+  inject,
+  signal,
+  OnInit,
+  OnDestroy,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { I18nService } from '../core/i18n.service';
 import { ThemeService } from '../core/theme.service';
 import { AuthService } from '../core/auth.service';
+import { ApiClient } from '../core/api-client.service';
+import { RealtimeService } from '../core/realtime.service';
 import { StIconComponent } from '../shared/ui/icon.component';
 import { LiveStatusComponent } from '../shared/ui/live-status.component';
 import type { SupportedLocale } from '../core/dictionaries';
@@ -39,6 +51,7 @@ import type { SupportedLocale } from '../core/dictionaries';
         class="st-icon-btn"
         [attr.aria-label]="i18n.t('shell.notifications')"
         [attr.title]="i18n.t('shell.notifications')"
+        (click)="openNotifications()"
       >
         <st-icon name="bell" [size]="18" />
         @if (unread > 0) {
@@ -264,14 +277,45 @@ import type { SupportedLocale } from '../core/dictionaries';
     `,
   ],
 })
-export class TopbarComponent {
+export class TopbarComponent implements OnInit, OnDestroy {
   readonly i18n = inject(I18nService);
   readonly theme = inject(ThemeService);
   readonly auth = inject(AuthService);
-  @Input() unread = 3;
+  private readonly api = inject(ApiClient);
+  private readonly realtime = inject(RealtimeService);
+  private readonly router = inject(Router);
+  @Input() unread = 0;
   @Output() menu = new EventEmitter<void>();
   search = '';
   userOpen = false;
+  private notificationsSub: { unsubscribe(): void } | null = null;
+
+  /** E3: live unread badge (was a hardcoded default). Falls back silently. */
+  ngOnInit(): void {
+    this.refreshUnread();
+    this.notificationsSub = this.realtime.notifications$.subscribe(() => this.refreshUnread());
+  }
+
+  ngOnDestroy(): void {
+    this.notificationsSub?.unsubscribe();
+    this.notificationsSub = null;
+  }
+
+  refreshUnread(): void {
+    if (!this.auth.isAuthenticated()) return;
+    this.api.getUnreadCount().subscribe({
+      next: (r) => {
+        this.unread = r.unreadCount;
+      },
+      error: () => {
+        /* keep last known badge */
+      },
+    });
+  }
+
+  openNotifications(): void {
+    void this.router.navigate(['/notifications']);
+  }
 
   onLocale(locale: SupportedLocale): void {
     this.i18n.setLocale(locale);

@@ -18,6 +18,8 @@ import { TabsComponent } from '../../shared/ui/tabs.component';
 import { DialogComponent, ConfirmDialogComponent } from '../../shared/ui/dialog.component';
 import { StIconComponent } from '../../shared/ui/icon.component';
 import type { ApplicationDocumentItem } from '../../core/api-models';
+import type { AiAnalysisResult } from '../../core/api-models';
+import { ApiClient } from '../../core/api-client.service';
 
 type ReasonKind = 'reject' | 'correct' | 'accept-note' | 'verify';
 
@@ -382,6 +384,95 @@ type ReasonKind = 'reject' | 'correct' | 'accept-note' | 'verify';
         </section>
       }
 
+      @if (tab() === 'ai') {
+        <section class="st-card" [attr.aria-label]="i18n.t('dossier.aiTitle')">
+          <h2 class="st-card__title">{{ i18n.t('dossier.aiTitle') }}</h2>
+          <st-alert tone="info" [title]="i18n.t('dossier.aiAdvisoryTitle')">
+            {{ i18n.t('dossier.aiAdvisoryBody') }}
+          </st-alert>
+          @if (!aiResult() && !aiLoading()) {
+            <p class="st-hint">{{ i18n.t('dossier.aiHint') }}</p>
+            <button type="button" class="st-btn st-btn--primary" (click)="runAnalysis()">
+              {{ i18n.t('dossier.runAnalysis') }}
+            </button>
+          }
+          @if (aiLoading()) {
+            <st-skeleton [rows]="4" />
+          }
+          @if (aiError()) {
+            <st-alert tone="error">{{ aiError() }}</st-alert>
+            <button type="button" class="st-btn st-btn--secondary" (click)="runAnalysis()">
+              {{ i18n.t('common.retry') }}
+            </button>
+          }
+          @if (aiResult(); as result) {
+            <dl class="st-defs">
+              <div>
+                <dt>{{ i18n.t('dossier.aiModel') }}</dt>
+                <dd dir="auto">{{ result.analysis.modelUsed }}</dd>
+              </div>
+              <div>
+                <dt>{{ i18n.t('dossier.aiCin') }}</dt>
+                <dd>
+                  <st-badge
+                    [label]="
+                      result.analysis.cinExcluded
+                        ? i18n.t('dossier.aiCinExcluded')
+                        : i18n.t('dossier.aiCinUnknown')
+                    "
+                    [tone]="result.analysis.cinExcluded ? 'success' : 'warning'"
+                  />
+                </dd>
+              </div>
+            </dl>
+            @if (result.responseText) {
+              <p class="st-ai-text" dir="auto">{{ result.responseText }}</p>
+            }
+            @if (result.recommendations.length === 0) {
+              <p class="st-hint">{{ i18n.t('dossier.aiNoRecommendations') }}</p>
+            } @else {
+              <ul class="st-recs">
+                @for (rec of result.recommendations; track rec.id) {
+                  <li class="st-rec">
+                    <p dir="auto">{{ rec.recommendationText }}</p>
+                    <span class="st-rec__foot">
+                      <st-badge
+                        [label]="rec.status"
+                        [tone]="rec.status === 'PROPOSED' ? 'info' : 'neutral'"
+                      />
+                      @if (rec.status === 'PROPOSED') {
+                        <button
+                          type="button"
+                          class="st-btn st-btn--text"
+                          (click)="reviewRecommendation(rec.id, 'DISMISSED')"
+                        >
+                          {{ i18n.t('dossier.dismissRec') }}
+                        </button>
+                        <button
+                          type="button"
+                          class="st-btn st-btn--text"
+                          (click)="reviewRecommendation(rec.id, 'ACCEPTED_BY_HUMAN')"
+                        >
+                          {{ i18n.t('dossier.markReviewedRec') }}
+                        </button>
+                      }
+                    </span>
+                  </li>
+                }
+              </ul>
+            }
+            <button
+              type="button"
+              class="st-btn st-btn--secondary"
+              [disabled]="aiLoading()"
+              (click)="runAnalysis()"
+            >
+              {{ i18n.t('dossier.runAnalysis') }}
+            </button>
+          }
+        </section>
+      }
+
       <!-- Reason dialog (reject / correction / accept note / doc verification) -->
       <st-dialog [open]="reasonKind() !== null" [title]="reasonTitle()" (close)="closeReason()">
         <p class="st-hint">{{ reasonHint() }}</p>
@@ -591,6 +682,7 @@ export class ApplicationDossierComponent implements OnInit {
   readonly auth = inject(AuthService);
   private readonly crumbs = inject(BreadcrumbService);
   private readonly service = inject(ApplicationReviewService);
+  private readonly api = inject(ApiClient);
   private readonly realtime = inject(RealtimeService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly toast = inject(ToastService);
@@ -604,6 +696,9 @@ export class ApplicationDossierComponent implements OnInit {
   readonly bundle = signal<DossierBundle | null>(null);
   readonly tab = signal('overview');
   readonly cinRevealed = signal(false);
+  readonly aiLoading = signal(false);
+  readonly aiError = signal('');
+  readonly aiResult = signal<AiAnalysisResult | null>(null);
 
   readonly reasonKind = signal<ReasonKind | null>(null);
   readonly confirmBegin = signal(false);
@@ -622,7 +717,44 @@ export class ApplicationDossierComponent implements OnInit {
         count: dossier.documents.length,
       },
       { id: 'timeline', label: this.i18n.t('dossier.tabTimeline'), count: dossier.actions.length },
+      { id: 'ai', label: this.i18n.t('dossier.tabAi') },
     ];
+  }
+
+  /** Advisory report analysis (E2.2): STEG-focus relevance only — never a decision. */
+  runAnalysis(): void {
+    const id = this.bundle()?.application.id;
+    if (!id || this.aiLoading()) return;
+    this.aiLoading.set(true);
+    this.aiError.set('');
+    this.api.analyzeApplication(id).subscribe({
+      next: (result) => {
+        this.aiResult.set(result);
+        this.aiLoading.set(false);
+      },
+      error: (e: unknown) => {
+        this.aiError.set(actionErrorMessage(e, this.i18n));
+        this.aiLoading.set(false);
+      },
+    });
+  }
+
+  reviewRecommendation(recId: string, status: 'ACCEPTED_BY_HUMAN' | 'DISMISSED'): void {
+    this.api.reviewAiRecommendation(recId, status).subscribe({
+      next: () => {
+        const current = this.aiResult();
+        if (current) {
+          this.aiResult.set({
+            ...current,
+            recommendations: current.recommendations.map((r) =>
+              r.id === recId ? { ...r, status } : r,
+            ),
+          });
+        }
+        this.toast.show('success', this.i18n.t('dossier.actionDone'));
+      },
+      error: (e: unknown) => this.toast.show('error', actionErrorMessage(e, this.i18n)),
+    });
   }
 
   canAct(): boolean {

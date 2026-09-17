@@ -1,16 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard, permissionGuard } from './core/guards';
 
-function placeholder(title: string, subtitle: string, body: string, crumbKey: string): object {
-  return {
-    title,
-    subtitle,
-    body,
-    crumbKey,
-    crumbFallback: title,
-  };
-}
-
 export const routes: Routes = [
   {
     path: 'login',
@@ -107,32 +97,9 @@ export const routes: Routes = [
         canActivate: [permissionGuard(['INTERNSHIP_VIEW'])],
         title: 'STEG Back Office — Internship',
       },
-      {
-        path: 'assignments',
-        loadComponent: () =>
-          import('./features/placeholder.component').then((m) => m.PlaceholderComponent),
-        canActivate: [permissionGuard(['INTERNSHIP_ASSIGN'])],
-        data: placeholder(
-          'Supervisors & assignments',
-          'One active assignment rule · Phase C3',
-          'Assignment workspace lands in Phase C3.',
-          'nav.assignments',
-        ),
-        title: 'STEG Back Office — Assignments',
-      },
-      {
-        path: 'documents',
-        loadComponent: () =>
-          import('./features/placeholder.component').then((m) => m.PlaceholderComponent),
-        canActivate: [permissionGuard(['DOCUMENT_VIEW'])],
-        data: placeholder(
-          'Documents',
-          'Restricted CIN handling · Phase C4',
-          'Document workspace lands in Phase C4.',
-          'nav.documents',
-        ),
-        title: 'STEG Back Office — Documents',
-      },
+      // E3: no standalone assignments/documents workspaces — assignment lives in the
+      // internship-detail assignment tab, document review in the dossier/finance workspaces
+      // (all E2-proven). Redundant placeholder routes removed, not stubbed.
       {
         path: 'finance',
         loadComponent: () =>
@@ -152,27 +119,17 @@ export const routes: Routes = [
       {
         path: 'reports',
         loadComponent: () =>
-          import('./features/placeholder.component').then((m) => m.PlaceholderComponent),
+          import('./features/reports/reports.component').then((m) => m.ReportsComponent),
         canActivate: [permissionGuard(['REPORT_VIEW'])],
-        data: placeholder(
-          'Reports',
-          'Backend aggregates only · Phase C1',
-          'Reporting lands in Phase C1.',
-          'nav.reports',
-        ),
         title: 'STEG Back Office — Reports',
       },
       {
         path: 'notifications',
         loadComponent: () =>
-          import('./features/placeholder.component').then((m) => m.PlaceholderComponent),
+          import('./features/notifications/notification-center.component').then(
+            (m) => m.NotificationCenterComponent,
+          ),
         canActivate: [permissionGuard([])],
-        data: placeholder(
-          'Notifications',
-          'Workflow events',
-          'Notification center wiring lands in Phase C1.',
-          'nav.notifications',
-        ),
         title: 'STEG Back Office — Notifications',
       },
       {

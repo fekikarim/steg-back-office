@@ -176,6 +176,29 @@ export class ApiClient {
       .pipe(catchError((e) => throwError(() => e)));
   }
 
+  /** Unread count for the topbar bell (own deliveries only, backend-scoped). */
+  getUnreadCount(): Observable<{ unreadCount: number }> {
+    return this.http
+      .get<{ unreadCount: number }>(`${this.baseUrl}/api/notifications/unread-count`, {
+        context: this.silentContext(),
+      })
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Mark one notification as read (own deliveries only, backend-scoped). */
+  markNotificationRead(id: string): Observable<unknown> {
+    return this.http
+      .post(`${this.baseUrl}/api/notifications/${id}/read`, {})
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Mark all own notifications as read. */
+  markAllNotificationsRead(): Observable<unknown> {
+    return this.http
+      .post(`${this.baseUrl}/api/notifications/read-all`, {})
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
   /** Secure download via backend endpoint only — never expose storage keys. */
   downloadUrl(path: string): string {
     return `${this.baseUrl}${path}`;
@@ -559,6 +582,16 @@ export class ApiClient {
         `${this.baseUrl}/api/finance-cases/${caseId}/documents/${documentId}`,
         body,
       )
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /**
+   * Advisory AI report analysis of an application (ADMIN/HR). Narrow objective:
+   * STEG-focus relevance of the submitted report — never an accept/reject decision.
+   */
+  analyzeApplication(applicationId: string): Observable<AiAnalysisResult> {
+    return this.http
+      .post<AiAnalysisResult>(`${this.baseUrl}/api/ai/applications/${applicationId}/analyze`, {})
       .pipe(catchError((e) => throwError(() => e)));
   }
 

@@ -109,18 +109,6 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         permissions: ['INTERNSHIP_VIEW'],
       },
       {
-        path: '/assignments',
-        labelKey: 'nav.assignments',
-        icon: 'link',
-        permissions: ['INTERNSHIP_ASSIGN'],
-      },
-      {
-        path: '/documents',
-        labelKey: 'nav.documents',
-        icon: 'folder',
-        permissions: ['DOCUMENT_VIEW'],
-      },
-      {
         path: '/finance',
         labelKey: 'nav.finance',
         icon: 'wallet',
