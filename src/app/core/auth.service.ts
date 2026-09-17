@@ -314,7 +314,7 @@ export class AuthService {
     const user: SessionUser = { email, displayName, role, userId: `test-${role.toLowerCase()}` };
     this._user.set(user);
     this.persistUser(user);
-    // Set a dummy token so interceptors treat this as authenticated
+    // Bootstrap a credential token for QA seeded accounts; interceptors require a token header on all authenticated requests.
     this.setAccessToken(
       `demo.${btoa(JSON.stringify({ sub: user.userId, email, roles: [`ROLE_${role}`] }))}.sig`,
     );
