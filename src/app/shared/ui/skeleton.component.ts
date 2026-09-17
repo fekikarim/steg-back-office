@@ -1,15 +1,16 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, inject } from '@angular/core';
+import { I18nService } from '../../core/i18n.service';
 
 /** Skeleton loader for content areas (never a blank page while loading). */
 @Component({
   selector: 'st-skeleton',
   standalone: true,
   template: `
-    <div class="st-skel" role="status" aria-label="Loading">
+    <div class="st-skel" role="status" [attr.aria-label]="i18n.t('common.loading')">
       @for (row of rowsArray(); track $index) {
         <div class="st-skel__row" [style.inline-size]="width"></div>
       }
-      <span class="st-sr-only">Loading…</span>
+      <span class="st-sr-only">{{ i18n.t('common.loading') }}</span>
     </div>
   `,
   styles: [
@@ -44,6 +45,7 @@ import { Component, Input } from '@angular/core';
   ],
 })
 export class SkeletonComponent {
+  readonly i18n = inject(I18nService);
   @Input() rows = 3;
   @Input() width = '100%';
   rowsArray(): number[] {

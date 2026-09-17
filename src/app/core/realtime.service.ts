@@ -1,4 +1,12 @@
-import { Injectable, inject, signal, computed, PLATFORM_ID, effect, OnDestroy } from '@angular/core';
+import {
+  Injectable,
+  inject,
+  signal,
+  computed,
+  PLATFORM_ID,
+  effect,
+  OnDestroy,
+} from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
 import { Subject, Observable } from 'rxjs';
@@ -18,7 +26,16 @@ export interface RealtimeNotificationPayload {
 }
 
 export interface BackofficeEvent {
-  type: 'application' | 'candidate' | 'internship' | 'finance' | 'audit' | 'department' | 'employee' | 'notification' | 'unknown';
+  type:
+    | 'application'
+    | 'candidate'
+    | 'internship'
+    | 'finance'
+    | 'audit'
+    | 'department'
+    | 'employee'
+    | 'notification'
+    | 'unknown';
   action: string;
   entityId?: string;
   payload: RealtimeNotificationPayload;
@@ -68,7 +85,8 @@ export class RealtimeService implements OnDestroy {
   private readonly rawSubject = new Subject<IMessage>();
 
   // Public observables
-  readonly notifications$: Observable<RealtimeNotificationPayload> = this.notificationSubject.asObservable();
+  readonly notifications$: Observable<RealtimeNotificationPayload> =
+    this.notificationSubject.asObservable();
   readonly backofficeEvents$: Observable<BackofficeEvent> = this.backofficeSubject.asObservable();
   readonly rawMessages$: Observable<IMessage> = this.rawSubject.asObservable();
 
@@ -94,7 +112,11 @@ export class RealtimeService implements OnDestroy {
     // Visibility + online listeners for fast recovery
     this.visibilityHandler = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-        if (this.auth.isAuthenticated() && this._state() !== 'connected' && this._state() !== 'connecting') {
+        if (
+          this.auth.isAuthenticated() &&
+          this._state() !== 'connected' &&
+          this._state() !== 'connecting'
+        ) {
           this.reconnectWithNewToken();
         }
       }
@@ -135,7 +157,8 @@ export class RealtimeService implements OnDestroy {
 
   ngOnDestroy(): void {
     try {
-      if (this.visibilityHandler) document.removeEventListener('visibilitychange', this.visibilityHandler);
+      if (this.visibilityHandler)
+        document.removeEventListener('visibilitychange', this.visibilityHandler);
       if (this.onlineHandler) window.removeEventListener('online', this.onlineHandler);
     } catch {}
     this.disconnect();
@@ -202,7 +225,11 @@ export class RealtimeService implements OnDestroy {
         const msg = frame.headers['message'] ?? '';
         this._state.set('error');
         console.warn('[Realtime] STOMP error', msg);
-        if (msg.toLowerCase().includes('unauthorized') || msg.includes('401') || msg.includes('403')) {
+        if (
+          msg.toLowerCase().includes('unauthorized') ||
+          msg.includes('401') ||
+          msg.includes('403')
+        ) {
           this.handleAuthError();
         }
       },
@@ -258,7 +285,11 @@ export class RealtimeService implements OnDestroy {
     if (!this.client) return;
     this.subscriptions.clear();
 
-    const safeSubscribe = (destination: string, key: string, handler: (msg: IMessage) => void): void => {
+    const safeSubscribe = (
+      destination: string,
+      key: string,
+      handler: (msg: IMessage) => void,
+    ): void => {
       try {
         const sub = this.client!.subscribe(destination, (msg) => {
           try {
@@ -274,7 +305,9 @@ export class RealtimeService implements OnDestroy {
       }
     };
 
-    safeSubscribe('/user/queue/notifications', 'notifications', (msg) => this.handleNotificationMessage(msg));
+    safeSubscribe('/user/queue/notifications', 'notifications', (msg) =>
+      this.handleNotificationMessage(msg),
+    );
     safeSubscribe('/user/queue/errors', 'errors', (msg) => this.rawSubject.next(msg));
 
     const topics = [
@@ -292,7 +325,9 @@ export class RealtimeService implements OnDestroy {
     }
 
     // Fallback generic broadcast topic
-    safeSubscribe('/topic/backoffice', 'generic', (msg) => this.handleBackofficeMessage('/topic/backoffice', msg));
+    safeSubscribe('/topic/backoffice', 'generic', (msg) =>
+      this.handleBackofficeMessage('/topic/backoffice', msg),
+    );
   }
 
   private handleNotificationMessage(msg: IMessage): void {
@@ -307,7 +342,15 @@ export class RealtimeService implements OnDestroy {
       this.backofficeSubject.next({
         type: 'notification',
         action: 'new',
-        payload: { notificationId: '', title: '', message: msg.body, priority: 'NORMAL', relatedEntityType: 'Unknown', relatedEntityId: '', createdAt: new Date().toISOString() },
+        payload: {
+          notificationId: '',
+          title: '',
+          message: msg.body,
+          priority: 'NORMAL',
+          relatedEntityType: 'Unknown',
+          relatedEntityId: '',
+          createdAt: new Date().toISOString(),
+        },
         receivedAt: new Date().toISOString(),
       });
     }
@@ -331,7 +374,15 @@ export class RealtimeService implements OnDestroy {
       this.backofficeSubject.next({
         type: 'unknown',
         action: 'update',
-        payload: { notificationId: '', title: '', message: msg.body, priority: 'NORMAL', relatedEntityType: 'Unknown', relatedEntityId: '', createdAt: new Date().toISOString() },
+        payload: {
+          notificationId: '',
+          title: '',
+          message: msg.body,
+          priority: 'NORMAL',
+          relatedEntityType: 'Unknown',
+          relatedEntityId: '',
+          createdAt: new Date().toISOString(),
+        },
         receivedAt: new Date().toISOString(),
       });
     }

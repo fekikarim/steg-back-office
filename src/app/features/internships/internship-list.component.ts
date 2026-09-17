@@ -292,7 +292,9 @@ export class InternshipListComponent implements OnInit, OnDestroy {
     const remembered = readRememberedSupervisor();
     this.supervisor.set(saved.supervisor || (this.isSupervisorView() ? remembered : ''));
     this.load();
-    this.realtime.internshipUpdates$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.load());
+    this.realtime.internshipUpdates$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.load());
   }
 
   onFilter(): void {

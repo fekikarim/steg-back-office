@@ -56,7 +56,7 @@ export interface SortState {
             }
             @if (hasActions) {
               <th scope="col" class="st-table__actions-head">
-                <span class="st-sr-only">Actions</span>
+                <span class="st-sr-only">{{ i18n.t('page.actions') }}</span>
               </th>
             }
           </tr>

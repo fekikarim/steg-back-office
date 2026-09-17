@@ -81,18 +81,20 @@ export class AuthService {
     }
     if (this.refreshShared$) return this.refreshShared$;
     this.isRefreshing = true;
-    this.refreshShared$ = this.http.post<AuthResponse>(`${this.baseUrl}/api/auth/refresh`, { refreshToken }).pipe(
-      tap((res) => this.handleAuthResponse(res)),
-      shareReplay({ bufferSize: 1, refCount: true }),
-      catchError((err) => {
-        this.clearSession();
-        return throwError(() => err);
-      }),
-      finalize(() => {
-        this.isRefreshing = false;
-        this.refreshShared$ = null;
-      }),
-    );
+    this.refreshShared$ = this.http
+      .post<AuthResponse>(`${this.baseUrl}/api/auth/refresh`, { refreshToken })
+      .pipe(
+        tap((res) => this.handleAuthResponse(res)),
+        shareReplay({ bufferSize: 1, refCount: true }),
+        catchError((err) => {
+          this.clearSession();
+          return throwError(() => err);
+        }),
+        finalize(() => {
+          this.isRefreshing = false;
+          this.refreshShared$ = null;
+        }),
+      );
     return this.refreshShared$;
   }
 

@@ -290,7 +290,9 @@ export class ApplicationsComponent implements OnInit, OnDestroy {
       this.page.set(0);
     }
     this.load();
-    this.realtime.applicationUpdates$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.load());
+    this.realtime.applicationUpdates$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.load());
   }
 
   onFilter(): void {

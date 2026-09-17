@@ -258,7 +258,9 @@ export class FinanceQueueComponent implements OnInit, OnDestroy {
     this.department.set(saved.department);
     this.eligibility.set(saved.eligibility);
     this.load();
-    this.realtime.financeUpdates$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.load());
+    this.realtime.financeUpdates$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.load());
   }
 
   /** Server-side change (status/sort): reset page and refetch. */

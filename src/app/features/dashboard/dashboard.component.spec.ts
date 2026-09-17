@@ -202,8 +202,8 @@ describe('DashboardComponent', () => {
 
   it('has no manual refresh button — uses live WebSocket with update timestamp', async () => {
     const { fixture } = await setup('HR', snapshot());
-    const refreshBtn = [...fixture.nativeElement.querySelectorAll('button')].find((b: HTMLButtonElement) =>
-      b.textContent?.includes('Refresh'),
+    const refreshBtn = [...fixture.nativeElement.querySelectorAll('button')].find(
+      (b: HTMLButtonElement) => b.textContent?.includes('Refresh'),
     );
     expect(refreshBtn).toBeFalsy();
     expect(fixture.nativeElement.querySelector('st-live-status')).toBeTruthy();

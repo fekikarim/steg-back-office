@@ -192,7 +192,9 @@ export class CandidateListComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.crumbs.set([{ labelKey: 'nav.candidates', labelFallback: 'Candidates' }]);
     this.load();
-    this.realtime.candidateUpdates$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.load());
+    this.realtime.candidateUpdates$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.load());
   }
 
   ngOnDestroy(): void {}

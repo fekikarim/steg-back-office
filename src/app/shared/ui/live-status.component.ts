@@ -1,5 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { RealtimeService } from '../../core/realtime.service';
+import { I18nService } from '../../core/i18n.service';
 
 /**
  * Live status indicator for the professional back office.
@@ -14,16 +15,21 @@ import { RealtimeService } from '../../core/realtime.service';
   imports: [],
   template: `
     <div class="st-live" [attr.data-state]="realtime.state()" role="status" aria-live="polite">
-      <span class="st-live__dot" [class.st-live__dot--connected]="realtime.connected()" [class.st-live__dot--connecting]="realtime.connecting()" aria-hidden="true"></span>
+      <span
+        class="st-live__dot"
+        [class.st-live__dot--connected]="realtime.connected()"
+        [class.st-live__dot--connecting]="realtime.connecting()"
+        aria-hidden="true"
+      ></span>
       @if (realtime.connected()) {
-        <span class="st-live__label">Live</span>
+        <span class="st-live__label">{{ i18n.t('live.connected') }}</span>
         @if (realtime.lastEventAt(); as ts) {
           <span class="st-live__time" [attr.title]="ts">{{ formatTime(ts) }}</span>
         }
       } @else if (realtime.connecting()) {
-        <span class="st-live__label">Connecting…</span>
+        <span class="st-live__label">{{ i18n.t('live.connecting') }}</span>
       } @else {
-        <span class="st-live__label">Offline</span>
+        <span class="st-live__label">{{ i18n.t('live.offline') }}</span>
       }
     </div>
   `,
@@ -64,17 +70,26 @@ import { RealtimeService } from '../../core/realtime.service';
         font-size: 0.7rem;
       }
       @keyframes st-pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
       }
       @media (prefers-reduced-motion: reduce) {
-        .st-live__dot--connected, .st-live__dot--connecting { animation: none; }
+        .st-live__dot--connected,
+        .st-live__dot--connecting {
+          animation: none;
+        }
       }
     `,
   ],
 })
 export class LiveStatusComponent {
   readonly realtime = inject(RealtimeService);
+  readonly i18n = inject(I18nService);
 
   formatTime(iso: string): string {
     try {

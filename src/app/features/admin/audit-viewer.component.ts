@@ -293,7 +293,9 @@ export class AuditViewerComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.crumbs.set([{ labelKey: 'nav.audit', labelFallback: 'Audit' }]);
     this.load();
-    this.realtime.auditUpdates$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.load());
+    this.realtime.auditUpdates$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.load());
   }
 
   onServerFilter(): void {

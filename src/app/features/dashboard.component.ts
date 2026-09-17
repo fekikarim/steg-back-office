@@ -196,11 +196,11 @@ import type { StaffRole } from '../core/roles';
               <table class="st-table">
                 <thead>
                   <tr>
-                    <th scope="col">Year</th>
-                    <th scope="col">Month</th>
-                    <th scope="col">Department</th>
-                    <th scope="col">Amount (TND)</th>
-                    <th scope="col">Receipts</th>
+                    <th scope="col">{{ i18n.t('dashboard.payments.year') }}</th>
+                    <th scope="col">{{ i18n.t('dashboard.payments.month') }}</th>
+                    <th scope="col">{{ i18n.t('dashboard.payments.department') }}</th>
+                    <th scope="col">{{ i18n.t('dashboard.payments.amount') }}</th>
+                    <th scope="col">{{ i18n.t('dashboard.payments.receipts') }}</th>
                   </tr>
                 </thead>
                 <tbody>
