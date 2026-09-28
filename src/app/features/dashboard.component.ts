@@ -1,7 +1,7 @@
 import { Component, inject, signal, computed, OnInit, OnDestroy, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NgTemplateOutlet } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { I18nService } from '../core/i18n.service';
 import { AuthService } from '../core/auth.service';
 import { BreadcrumbService } from '../core/breadcrumb.service';
@@ -13,6 +13,7 @@ import { SkeletonComponent } from '../shared/ui/skeleton.component';
 import { ErrorStateComponent } from '../shared/ui/states.component';
 import { DistBarsComponent } from './dashboard/dist-bars.component';
 import { LiveStatusComponent } from '../shared/ui/live-status.component';
+import { AiInsightsComponent } from './ai/ai-insights.component';
 import { sumGroups, countOf, totalOf, type GroupCountDto } from '../core/api-models';
 import type { StaffRole } from '../core/roles';
 
@@ -34,6 +35,7 @@ import type { StaffRole } from '../core/roles';
     ErrorStateComponent,
     DistBarsComponent,
     LiveStatusComponent,
+    AiInsightsComponent,
   ],
   template: `
     <st-page-header [title]="i18n.t('dashboard.title')" [subtitle]="i18n.t('dashboard.subtitle')">
@@ -259,6 +261,11 @@ import type { StaffRole } from '../core/roles';
         </div>
       }
 
+      <!-- AI administrative insights (rule-based, backend figures only) -->
+      @if (showOperations()) {
+        <st-ai-insights />
+      }
+
       <!-- Recent activity from backend notifications -->
       <section class="st-card" [attr.aria-label]="i18n.t('dashboard.activity.title')">
         <div class="st-card__head">
@@ -360,7 +367,7 @@ import type { StaffRole } from '../core/roles';
       .st-grid {
         display: grid;
         gap: 0.75rem;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         margin-block-end: 0.75rem;
       }
       .st-card {
@@ -414,6 +421,19 @@ import type { StaffRole } from '../core/roles';
         text-decoration: none;
         color: inherit;
         font-size: 0.85rem;
+        min-inline-size: 0;
+      }
+      .st-queue__row > span {
+        min-inline-size: 0;
+        overflow-wrap: anywhere;
+      }
+      .st-queue__row .st-badge {
+        min-inline-size: 0;
+      }
+      .st-queue__row::ng-deep .st-badge {
+        white-space: normal;
+        text-align: center;
+        overflow-wrap: anywhere;
       }
       .st-queue__row:hover {
         border-color: var(--action-primary);
@@ -463,7 +483,7 @@ import type { StaffRole } from '../core/roles';
           grid-template-columns: repeat(2, 1fr);
         }
         .st-grid {
-          grid-template-columns: 1fr;
+          grid-template-columns: minmax(0, 1fr);
         }
       }
       @media (max-width: 480px) {
@@ -477,6 +497,7 @@ import type { StaffRole } from '../core/roles';
 export class DashboardComponent implements OnInit, OnDestroy {
   readonly i18n = inject(I18nService);
   readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
   private readonly crumbs = inject(BreadcrumbService);
   private readonly service = inject(DashboardService);
   private readonly realtime = inject(RealtimeService);
@@ -487,21 +508,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
   readonly refreshedAt = signal<string>('');
 
   readonly role = computed(() => this.auth.role());
-  readonly showOperations = computed(() => {
-    const r = this.role();
-    return r === 'HR' || r === 'SUPERVISOR' || r === 'DIRECTOR' || r === 'ADMIN';
-  });
-  readonly showFinance = computed(() => {
-    const r = this.role();
-    return r === 'FINANCE' || r === 'DIRECTOR' || r === 'ADMIN';
-  });
-  readonly showOverview = computed(() => {
-    const r = this.role();
-    return r === 'DIRECTOR' || r === 'ADMIN';
-  });
+  readonly showOperations = computed(() => this.role() === 'ADMIN');
+  readonly showFinance = computed(() => this.role() === 'ADMIN');
+  readonly showOverview = computed(() => this.role() === 'ADMIN');
 
   ngOnInit(): void {
     this.crumbs.set([{ labelKey: 'nav.dashboard', labelFallback: 'Dashboard' }]);
+    // Supervisors land on their dashboard; the global dashboard
+    // aggregates are an ADMIN surface (reports endpoints are ADMIN-only).
+    if (this.auth.role() === 'SUPERVISOR') {
+      void this.router.navigate(['/supervisor-dashboard']);
+      return;
+    }
     this.load();
     // Real-time: dashboard reacts to every domain (no refresh button needed)
     this.realtime.backofficeEvents$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {

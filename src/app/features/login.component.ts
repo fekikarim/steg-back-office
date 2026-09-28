@@ -201,6 +201,8 @@ export class LoginComponent implements OnInit {
         status?: number;
         message?: string;
       };
+      if (httpErr.error?.message === 'BACK_OFFICE_DENIED')
+        return this.i18n.t('auth.backOfficeDenied');
       if (httpErr.error?.message) return httpErr.error.message;
       if (typeof httpErr.error?.error === 'string') return httpErr.error.error;
       if (httpErr.status === 401) return this.i18n.t('auth.invalidCredentials');

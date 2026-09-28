@@ -78,7 +78,7 @@ describe('InternshipCreateComponent', () => {
         },
       ],
     }).compileComponents();
-    TestBed.inject(AuthService).signInDemo('rh@steg.tn', 'HR');
+    TestBed.inject(AuthService).signInDemo('admin@steg.tn', 'ADMIN');
     TestBed.inject(I18nService).setLocale('en');
     const fixture = TestBed.createComponent(InternshipCreateComponent);
     fixture.detectChanges();

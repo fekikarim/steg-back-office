@@ -2,6 +2,7 @@ import { Component, inject, signal, computed, OnInit, OnDestroy, DestroyRef } fr
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { forkJoin, of, catchError } from 'rxjs';
 import { I18nService } from '../../core/i18n.service';
 import { RealtimeService } from '../../core/realtime.service';
 import { BreadcrumbService } from '../../core/breadcrumb.service';
@@ -12,7 +13,13 @@ import { DataTableComponent, type SortState } from '../../shared/ui/data-table.c
 import { PaginationComponent } from '../../shared/ui/pagination.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { EmptyStateComponent, ErrorStateComponent } from '../../shared/ui/states.component';
+import { BadgeComponent } from '../../shared/ui/badge.component';
 import type { CandidateSummary } from '../../core/api-models';
+
+interface CandidateRow extends CandidateSummary {
+  readonly applied: boolean;
+  readonly latestStatus: string | null;
+}
 
 /**
  * Staff candidate list (ADMIN/HR). Uses CandidateSummary only — nationalId
@@ -31,6 +38,7 @@ import type { CandidateSummary } from '../../core/api-models';
     SkeletonComponent,
     EmptyStateComponent,
     ErrorStateComponent,
+    BadgeComponent,
   ],
   template: `
     <st-page-header [title]="i18n.t('candidates.title')" [subtitle]="i18n.t('candidates.subtitle')">
@@ -56,6 +64,14 @@ import type { CandidateSummary } from '../../core/api-models';
           @for (u of universities(); track u) {
             <option [value]="u">{{ u }}</option>
           }
+        </select>
+      </label>
+      <label class="st-field">
+        <span class="st-field__label">{{ i18n.t('candidates.appliedFilter') }}</span>
+        <select class="st-input" [(ngModel)]="appliedFilter" (change)="page.set(0)">
+          <option value="">{{ i18n.t('table.all') }}</option>
+          <option value="yes">{{ i18n.t('candidates.appliedYes') }}</option>
+          <option value="no">{{ i18n.t('candidates.notApplied') }}</option>
         </select>
       </label>
     </section>
@@ -88,6 +104,13 @@ import type { CandidateSummary } from '../../core/api-models';
             <td dir="ltr" data-priority="medium">{{ row.email }}</td>
             <td dir="auto" data-priority="medium">{{ row.universityName }}</td>
             <td data-priority="low" dir="auto">{{ row.speciality || '—' }}</td>
+            <td data-priority="medium">
+              @if (row.applied) {
+                <st-badge [label]="row.latestStatus ?? i18n.t('common.yes')" tone="info" />
+              } @else {
+                <st-badge [label]="i18n.t('candidates.notApplied')" tone="neutral" />
+              }
+            </td>
             <td>
               <button type="button" class="st-btn st-btn--text" (click)="open(row.id)">
                 {{ i18n.t('common.view') }}
@@ -143,18 +166,45 @@ export class CandidateListComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
 
   readonly columns = [
-    { key: 'name', label: 'Name', sortable: true, priority: 'high' as const },
-    { key: 'email', label: 'Email', sortable: true, priority: 'medium' as const },
-    { key: 'universityName', label: 'University', sortable: true, priority: 'medium' as const },
-    { key: 'speciality', label: 'Speciality', sortable: false, priority: 'low' as const },
+    {
+      key: 'name',
+      label: this.i18n.t('candidates.name'),
+      sortable: true,
+      priority: 'high' as const,
+    },
+    {
+      key: 'email',
+      label: this.i18n.t('candidates.email'),
+      sortable: true,
+      priority: 'medium' as const,
+    },
+    {
+      key: 'universityName',
+      label: this.i18n.t('candidates.university'),
+      sortable: true,
+      priority: 'medium' as const,
+    },
+    {
+      key: 'speciality',
+      label: this.i18n.t('candidates.speciality'),
+      sortable: false,
+      priority: 'low' as const,
+    },
+    {
+      key: 'applied',
+      label: this.i18n.t('candidates.applied'),
+      sortable: true,
+      priority: 'medium' as const,
+    },
   ];
 
   readonly loading = signal(true);
   readonly error = signal(false);
-  private readonly all = signal<readonly CandidateSummary[]>([]);
+  private readonly all = signal<readonly CandidateRow[]>([]);
   readonly universities = signal<readonly string[]>([]);
   readonly search = signal('');
   readonly university = signal('');
+  readonly appliedFilter = signal('');
   readonly page = signal(0);
   readonly size = signal(20);
   readonly sort = signal<SortState | null>({ key: 'name', direction: 'asc' });
@@ -162,6 +212,7 @@ export class CandidateListComponent implements OnInit, OnDestroy {
   readonly filtered = computed(() => {
     const q = this.search().trim().toLowerCase();
     const uni = this.university();
+    const applied = this.appliedFilter();
     let rows = [...this.all()];
     if (q) {
       rows = rows.filter((r) =>
@@ -169,6 +220,8 @@ export class CandidateListComponent implements OnInit, OnDestroy {
       );
     }
     if (uni) rows = rows.filter((r) => r.universityName === uni);
+    if (applied === 'yes') rows = rows.filter((r) => r.applied);
+    if (applied === 'no') rows = rows.filter((r) => !r.applied);
     const sort = this.sort();
     if (sort) {
       const dir = sort.direction === 'desc' ? -1 : 1;
@@ -211,10 +264,34 @@ export class CandidateListComponent implements OnInit, OnDestroy {
   load(): void {
     this.loading.set(true);
     this.error.set(false);
-    this.api.listCandidates().subscribe({
-      next: (rows) => {
-        this.all.set(rows);
-        this.universities.set([...new Set(rows.map((r) => r.universityName))].sort());
+    forkJoin({
+      candidates: this.api.listCandidates(),
+      applications: this.api.listApplications().pipe(catchError(() => of([]))),
+    }).subscribe({
+      next: ({ candidates, applications }) => {
+        const byCandidate = new Map<string, { count: number; latest: string }>();
+        for (const app of applications) {
+          const entry = byCandidate.get(app.candidateId);
+          if (!entry || app.reference > entry.latest) {
+            byCandidate.set(app.candidateId, {
+              count: (entry?.count ?? 0) + 1,
+              latest: app.status,
+            });
+          } else {
+            entry.count += 1;
+          }
+        }
+        this.all.set(
+          candidates.map((c) => {
+            const entry = byCandidate.get(c.id);
+            return {
+              ...c,
+              applied: !!entry,
+              latestStatus: entry?.latest ?? null,
+            };
+          }),
+        );
+        this.universities.set([...new Set(candidates.map((r) => r.universityName))].sort());
         this.loading.set(false);
       },
       error: () => {

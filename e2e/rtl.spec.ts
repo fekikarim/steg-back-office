@@ -5,7 +5,7 @@ import { installMockApi, createMockState, loginAs } from './mock-backend';
 test.describe('arabic RTL', () => {
   test.beforeEach(async ({ page }) => {
     await installMockApi(page, createMockState());
-    await loginAs(page, 'rh@steg.tn', 'HR');
+    await loginAs(page, 'admin@steg.tn', 'ADMIN');
   });
 
   test('switching to Arabic flips the whole layout', async ({ page }) => {

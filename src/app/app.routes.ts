@@ -97,6 +97,24 @@ export const routes: Routes = [
         canActivate: [permissionGuard(['INTERNSHIP_VIEW'])],
         title: 'STEG Back Office — Internship',
       },
+      {
+        path: 'supervisor',
+        loadComponent: () =>
+          import('./features/internships/supervisor-dashboard.component').then(
+            (m) => m.SupervisorDashboardComponent,
+          ),
+        canActivate: [permissionGuard(['INTERNSHIP_VIEW'])],
+        title: 'STEG Back Office — Supervision',
+      },
+      {
+        path: 'supervisor-dashboard',
+        loadComponent: () =>
+          import('./features/internships/supervisor-home.component').then(
+            (m) => m.SupervisorHomeComponent,
+          ),
+        canActivate: [permissionGuard(['INTERNSHIP_VIEW'])],
+        title: 'STEG Back Office — Supervisor dashboard',
+      },
       // E3: no standalone assignments/documents workspaces — assignment lives in the
       // internship-detail assignment tab, document review in the dossier/finance workspaces
       // (all E2-proven). Redundant placeholder routes removed, not stubbed.
@@ -129,8 +147,15 @@ export const routes: Routes = [
           import('./features/notifications/notification-center.component').then(
             (m) => m.NotificationCenterComponent,
           ),
-        canActivate: [permissionGuard([])],
+        canActivate: [permissionGuard(['NOTIFICATION_MANAGE'])],
         title: 'STEG Back Office — Notifications',
+      },
+      {
+        path: 'tasks',
+        loadComponent: () =>
+          import('./features/ai/task-assistant.component').then((m) => m.TaskAssistantComponent),
+        canActivate: [permissionGuard(['APPLICATION_REVIEW'])],
+        title: 'STEG Back Office — Tasks',
       },
       {
         path: 'audit',

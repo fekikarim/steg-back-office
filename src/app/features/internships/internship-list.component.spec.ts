@@ -74,7 +74,7 @@ function assignment(name: string, department: string): InternshipAssignment {
 }
 
 describe('InternshipListComponent', () => {
-  async function setup(role: 'HR' | 'SUPERVISOR' = 'HR') {
+  async function setup(role: 'ADMIN' | 'SUPERVISOR' = 'ADMIN') {
     localStorage.removeItem('st-mine-supervisor');
     await TestBed.configureTestingModule({
       imports: [InternshipListComponent],
@@ -104,7 +104,10 @@ describe('InternshipListComponent', () => {
         },
       ],
     }).compileComponents();
-    TestBed.inject(AuthService).signInDemo(role === 'HR' ? 'rh@steg.tn' : 'sup@steg.tn', role);
+    TestBed.inject(AuthService).signInDemo(
+      role === 'ADMIN' ? 'admin@steg.tn' : 'sup@steg.tn',
+      role,
+    );
     TestBed.inject(I18nService).setLocale('en');
     const fixture = TestBed.createComponent(InternshipListComponent);
     fixture.detectChanges();

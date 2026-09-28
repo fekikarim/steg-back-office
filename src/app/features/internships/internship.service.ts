@@ -17,7 +17,16 @@ import type {
   Employee,
   WorkflowActionResponse,
   WorkflowInstanceResponse,
+  ValidationDecision,
+  ValidationState,
+  CompanionTask,
+  JournalEntry,
+  DeliverableItem,
+  EvaluationItem,
+  EvaluationCreateBody,
+  TaskStatus,
 } from '../../core/api-models';
+import { deriveValidationState } from '../../core/api-models';
 
 export interface InternshipBundle {
   readonly internship: InternshipDetail;
@@ -29,6 +38,12 @@ export interface InternshipBundle {
   readonly actions: readonly WorkflowActionResponse[];
   /** True when the workflow history endpoint denied access (staff scope). */
   readonly actionsRestricted: boolean;
+  /** Latest administrative validation decision (null = awaiting validation). */
+  readonly validation: ValidationState;
+  readonly tasks: readonly CompanionTask[];
+  readonly journal: readonly JournalEntry[];
+  readonly deliverables: readonly DeliverableItem[];
+  readonly evaluations: readonly EvaluationItem[];
 }
 
 /** The currently effective assignment, if any. */
@@ -56,48 +71,83 @@ export class InternshipService {
           assignments: this.api.listAssignments(internshipId).pipe(catchError(() => of([]))),
           documents: this.api.listInternshipDocuments(internshipId).pipe(catchError(() => of([]))),
           workflow: this.api.getInternshipWorkflow(internshipId).pipe(catchError(() => of(null))),
+          tasks: this.api.listTasks(internshipId).pipe(
+            map((page) => page.content),
+            catchError(() => of([] as readonly CompanionTask[])),
+          ),
+          journal: this.api.listJournalEntries(internshipId).pipe(
+            map((page) => page.content),
+            catchError(() => of([] as readonly JournalEntry[])),
+          ),
+          deliverables: this.api.listDeliverables(internshipId).pipe(
+            map((page) => page.content),
+            catchError(() => of([] as readonly DeliverableItem[])),
+          ),
+          evaluations: this.api.listEvaluations(internshipId).pipe(
+            map((page) => page.content),
+            catchError(() => of([] as readonly EvaluationItem[])),
+          ),
         }).pipe(
-          switchMap(({ candidate, classification, assignments, documents, workflow }) => {
-            if (!workflow) {
-              return of({
-                internship,
-                candidate,
-                classification,
-                assignments,
-                documents,
-                workflow,
-                actions: [],
-                actionsRestricted: false,
-              });
-            }
-            return this.api.listWorkflowActions(workflow.id).pipe(
-              map((actions): InternshipBundle => ({
-                internship,
-                candidate,
-                classification,
-                assignments,
-                documents,
-                workflow,
-                actions,
-                actionsRestricted: false,
-              })),
-              catchError((error: unknown) => {
-                if (isForbidden(error)) {
-                  return of({
-                    internship,
-                    candidate,
-                    classification,
-                    assignments,
-                    documents,
-                    workflow,
-                    actions: [],
-                    actionsRestricted: true,
-                  });
-                }
-                return throwError(() => error);
-              }),
-            );
-          }),
+          switchMap(
+            ({
+              candidate,
+              classification,
+              assignments,
+              documents,
+              workflow,
+              tasks,
+              journal,
+              deliverables,
+              evaluations,
+            }) => {
+              const supervision = { tasks, journal, deliverables, evaluations };
+              if (!workflow) {
+                return of({
+                  internship,
+                  candidate,
+                  classification,
+                  assignments,
+                  documents,
+                  workflow,
+                  actions: [],
+                  actionsRestricted: false,
+                  validation: deriveValidationState([]),
+                  ...supervision,
+                });
+              }
+              return this.api.listWorkflowActions(workflow.id).pipe(
+                map((actions): InternshipBundle => ({
+                  internship,
+                  candidate,
+                  classification,
+                  assignments,
+                  documents,
+                  workflow,
+                  actions,
+                  actionsRestricted: false,
+                  validation: deriveValidationState(actions),
+                  ...supervision,
+                })),
+                catchError((error: unknown) => {
+                  if (isForbidden(error)) {
+                    return of({
+                      internship,
+                      candidate,
+                      classification,
+                      assignments,
+                      documents,
+                      workflow,
+                      actions: [],
+                      actionsRestricted: true,
+                      validation: deriveValidationState([]),
+                      ...supervision,
+                    });
+                  }
+                  return throwError(() => error);
+                }),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -150,6 +200,72 @@ export class InternshipService {
       actionType: 'COMPLETION',
       targetStepCode: 'COMPLETED',
     });
+  }
+
+  /**
+   * Administrative validation decision on a COMPLETED internship (ADMIN/HR).
+   * Recorded backend-side as an audited VALIDATION workflow action; the
+   * aggregate stays COMPLETED. A reason is mandatory for every decision
+   * except approval.
+   */
+  recordValidationDecision(
+    id: string,
+    decision: ValidationDecision,
+    comment: string,
+  ): Observable<WorkflowActionResponse> {
+    return this.api.executeInternshipTransition(id, {
+      actionType: 'VALIDATION',
+      targetStepCode: 'COMPLETED',
+      decision,
+      comment: comment.trim(),
+    });
+  }
+
+  /** Task status change (supervisor review of intern progress). */
+  setTaskStatus(taskId: string, status: TaskStatus): Observable<CompanionTask> {
+    return this.api.updateTaskStatus(taskId, status);
+  }
+
+  /** Create a task on an internship (ADMIN/HR/supervisor participant). */
+  createTask(
+    internshipId: string,
+    title: string,
+    dueDate: string | null,
+  ): Observable<CompanionTask> {
+    return this.api.createTask(internshipId, {
+      title,
+      ...(dueDate ? { dueDate } : {}),
+    });
+  }
+
+  /** Download a deliverable file (latest version). */
+  downloadDeliverable(deliverableId: string): Observable<Blob> {
+    return this.api.downloadDeliverable(deliverableId);
+  }
+
+  /** Supervisor journal review. */
+  validateJournal(entryId: string, comment?: string): Observable<JournalEntry> {
+    return this.api.validateJournalEntry(entryId, comment);
+  }
+
+  /** Supervisor journal rejection (reason mandatory). */
+  rejectJournal(entryId: string, comment: string): Observable<JournalEntry> {
+    return this.api.rejectJournalEntry(entryId, comment);
+  }
+
+  /** Supervisor deliverable review. */
+  validateDeliverable(deliverableId: string, comment?: string): Observable<DeliverableItem> {
+    return this.api.validateDeliverable(deliverableId, comment);
+  }
+
+  /** Supervisor deliverable rejection (reason mandatory). */
+  rejectDeliverable(deliverableId: string, comment: string): Observable<DeliverableItem> {
+    return this.api.rejectDeliverable(deliverableId, comment);
+  }
+
+  /** Supervisor final review (type FINAL recommended for completion). */
+  submitEvaluation(internshipId: string, body: EvaluationCreateBody): Observable<EvaluationItem> {
+    return this.api.createEvaluation(internshipId, body);
   }
 
   assign(id: string, body: InternshipAssignmentRequest): Observable<InternshipAssignment> {

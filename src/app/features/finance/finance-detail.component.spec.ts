@@ -159,7 +159,7 @@ describe('FinanceDetailComponent', () => {
   }
 
   it('renders the backend calculation verbatim with actual vs payable separated', async () => {
-    const { fixture } = await setup('FINANCE', bundle());
+    const { fixture } = await setup('ADMIN', bundle());
     const text = fixture.nativeElement.textContent as string;
     // Actual 6-month period intact…
     expect(text).toContain('2026-02-01');
@@ -171,15 +171,45 @@ describe('FinanceDetailComponent', () => {
     expect(text).toContain('PFE');
   });
 
-  it('hides approve/reject without the FINANCE role (ADMIN is read-only here)', async () => {
-    const { fixture } = await setup('ADMIN', bundle());
+  it('shows approve/reject to ADMIN and SUPERVISOR (backend scopes supervisor cases)', async () => {
+    const admin = await setup('ADMIN', bundle());
+    const adminText = admin.fixture.nativeElement.textContent as string;
+    expect(adminText).toContain('Approve payment');
+    expect(adminText).toContain('Reject payment');
+
+    await TestBed.resetTestingModule();
+    const sup = await setup('SUPERVISOR', bundle());
+    const supText = sup.fixture.nativeElement.textContent as string;
+    expect(supText).toContain('Approve payment');
+    expect(supText).toContain('Reject payment');
+  });
+
+  it('hides approval for non-eligible internships but keeps rejection (backend enforces too)', async () => {
+    const snap = bundle();
+    const ineligible = {
+      ...snap,
+      internship: { ...snap.internship!, paymentEligible: false, requirement: 'OPTIONAL' as const },
+    };
+    const { fixture } = await setup('ADMIN', ineligible);
     const text = fixture.nativeElement.textContent as string;
     expect(text).not.toContain('Approve payment');
-    expect(text).not.toContain('Reject payment');
+    expect(text).toContain('Reject payment');
+  });
+
+  it('hides dossier curation (recalculate, verify) from SUPERVISOR', async () => {
+    const { fixture } = await setup('SUPERVISOR', bundle());
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).not.toContain('Recalculer');
+    expect(text).not.toContain('Marquer vérifié');
+
+    await TestBed.resetTestingModule();
+    const admin = await setup('ADMIN', bundle());
+    const adminText = admin.fixture.nativeElement.textContent as string;
+    expect(adminText).toContain('Recalculate');
   });
 
   it('requires an explicit confirmation stating the receipt consequence', async () => {
-    const { fixture, calls } = await setup('FINANCE', bundle());
+    const { fixture, calls } = await setup('ADMIN', bundle());
     const component = fixture.componentInstance;
     component.openReason('approve');
     fixture.detectChanges();
@@ -194,7 +224,7 @@ describe('FinanceDetailComponent', () => {
   });
 
   it('blocks short rejection reasons client-side (backend stays authoritative)', async () => {
-    const { fixture, calls } = await setup('FINANCE', bundle());
+    const { fixture, calls } = await setup('SUPERVISOR', bundle());
     const component = fixture.componentInstance;
     component.openReason('reject');
     component.reasonText = 'no';
@@ -209,7 +239,7 @@ describe('FinanceDetailComponent', () => {
   });
 
   it('shows the receipt only when the backend confirms generation', async () => {
-    const without = await setup('FINANCE', bundle());
+    const without = await setup('ADMIN', bundle());
     expect(without.fixture.nativeElement.textContent as string).toContain('No receipt');
 
     await TestBed.resetTestingModule();
@@ -222,7 +252,7 @@ describe('FinanceDetailComponent', () => {
         receiptReference: 'PAY-2026-0001',
       },
     };
-    const { fixture, calls } = await setup('FINANCE', withReceipt);
+    const { fixture, calls } = await setup('ADMIN', withReceipt);
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('PAY-2026-0001');
     const component = fixture.componentInstance;
@@ -231,7 +261,7 @@ describe('FinanceDetailComponent', () => {
   });
 
   it('keeps AI advisory with no approve path and traceable reviews', async () => {
-    const { fixture, calls } = await setup('FINANCE', bundle());
+    const { fixture, calls } = await setup('ADMIN', bundle());
     const component = fixture.componentInstance;
     component.tab.set('ai');
     component.runAnalysis();
@@ -285,8 +315,8 @@ describe('FinanceDetailComponent', () => {
         },
       ],
     };
-    // DIRECTOR can view the case but holds no DOCUMENT_VIEW_RESTRICTED.
-    const { fixture } = await setup('DIRECTOR', docsBundle);
+    // SUPERVISOR can view the case but holds no DOCUMENT_VIEW_RESTRICTED.
+    const { fixture } = await setup('SUPERVISOR', docsBundle);
     const component = fixture.componentInstance;
     component.tab.set('dossier');
     fixture.detectChanges();
@@ -321,7 +351,7 @@ describe('FinanceDetailComponent', () => {
         },
       ],
     }).compileComponents();
-    TestBed.inject(AuthService).signInDemo('finance@steg.tn', 'FINANCE');
+    TestBed.inject(AuthService).signInDemo('sup@steg.tn', 'SUPERVISOR');
     TestBed.inject(I18nService).setLocale('en');
     const fixture = TestBed.createComponent(FinanceDetailComponent);
     fixture.detectChanges();

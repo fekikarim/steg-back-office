@@ -10,7 +10,7 @@ test.describe('keyboard', () => {
   test('login, review and dialogs work keyboard-only', async ({ page }) => {
     await page.goto('/login');
     // Skip link exists in the shell; login form is natively keyboard accessible.
-    await page.getByLabel(/e-mail|email/i).pressSequentially('rh@steg.tn');
+    await page.getByLabel(/e-mail|email/i).pressSequentially('admin@steg.tn');
     await page.keyboard.press('Tab');
     await page.keyboard.type('Password123!');
     await page.keyboard.press('Enter');

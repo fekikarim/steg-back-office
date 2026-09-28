@@ -20,6 +20,17 @@ export interface MockState {
     supervisorName: string;
     status: string;
   } | null;
+  validationActions: {
+    id: string;
+    decision: string;
+    comment: string | null;
+    sequenceNumber: number;
+    performedAt: string;
+  }[];
+  tasks: { id: string; title: string; status: string; dueDate: string | null }[];
+  journal: { id: string; title: string; status: string; entryDate: string }[];
+  deliverables: { id: string; title: string; status: string; currentVersion: number }[];
+  evaluations: { id: string; type: string; evaluationDate: string; totalScore: number | null }[];
 }
 
 export function createMockState(): MockState {
@@ -29,7 +40,35 @@ export function createMockState(): MockState {
     financeStatus: 'READY_FOR_DECISION',
     receiptReference: null,
     certificate: null,
-    assignment: null,
+    assignment: {
+      id: 'as-0',
+      departmentName: 'DSI',
+      supervisorName: 'Leila Mansour',
+      status: 'ACTIVE',
+    },
+    validationActions: [],
+    tasks: [
+      { id: 'task-1', title: 'Prise en main du poste', status: 'COMPLETED', dueDate: null },
+      {
+        id: 'task-2',
+        title: 'Rapport intermédiaire',
+        status: 'IN_PROGRESS',
+        dueDate: '2026-06-30',
+      },
+    ],
+    journal: [
+      { id: 'j-1', title: 'Semaine 1 — découverte', status: 'VALIDATED', entryDate: '2026-02-07' },
+      {
+        id: 'j-2',
+        title: 'Semaine 2 — mise en route',
+        status: 'SUBMITTED',
+        entryDate: '2026-02-14',
+      },
+    ],
+    deliverables: [
+      { id: 'del-1', title: 'Rapport de stage', status: 'SUBMITTED', currentVersion: 1 },
+    ],
+    evaluations: [],
   };
 }
 
@@ -188,18 +227,16 @@ export async function installMockApi(page: Page, state: MockState): Promise<void
       route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(json) });
 
     // --- auth (real backend flow: JWT with role) ---
+    // Back Office admits ADMIN and SUPERVISOR only; removed roles (HR,
+    // FINANCE, DIRECTOR) and other clients (CANDIDATE, INTERN) get 401 here,
+    // mirroring the backend + login-gate denial.
     if (method === 'POST' && path === '/auth/login') {
       const body = route.request().postDataJSON() as { email?: string; password?: string };
       const email = (body?.email ?? '').toLowerCase();
       const roleMap: Record<string, string> = {
-        'rh@steg.tn': 'HR',
+        'admin@steg.tn': 'ADMIN',
         'sup@steg.tn': 'SUPERVISOR',
         'supervisor.steg@steg.tn': 'SUPERVISOR',
-        'finance@steg.tn': 'FINANCE',
-        'finance.steg@steg.tn': 'FINANCE',
-        'admin@steg.tn': 'ADMIN',
-        'dir@steg.tn': 'DIRECTOR',
-        'candidate@steg.tn': 'CANDIDATE',
       };
       const role = roleMap[email];
       if (!role) {
@@ -220,8 +257,7 @@ export async function installMockApi(page: Page, state: MockState): Promise<void
         roles: [`ROLE_${role}`],
         exp: Math.floor(Date.now() / 1000) + 900,
       };
-      const b64 = (obj: unknown): string =>
-        Buffer.from(JSON.stringify(obj)).toString('base64url');
+      const b64 = (obj: unknown): string => Buffer.from(JSON.stringify(obj)).toString('base64url');
       const mockJwt = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64(payload)}.sig`;
       return ok({
         accessToken: mockJwt,
@@ -233,23 +269,14 @@ export async function installMockApi(page: Page, state: MockState): Promise<void
     if (method === 'POST' && path === '/auth/refresh') {
       const body = route.request().postDataJSON() as { refreshToken?: string };
       const rt = body?.refreshToken ?? '';
-      const role = rt.includes('finance')
-        ? 'FINANCE'
-        : rt.includes('supervisor') || rt.includes('sup')
-          ? 'SUPERVISOR'
-          : rt.includes('admin')
-            ? 'ADMIN'
-            : rt.includes('hr')
-              ? 'HR'
-              : 'HR';
+      const role = rt.includes('supervisor') || rt.includes('sup') ? 'SUPERVISOR' : 'ADMIN';
       const payload = {
         sub: `user-${role.toLowerCase()}`,
         email: `${role.toLowerCase()}@steg.tn`,
         roles: [`ROLE_${role}`],
         exp: Math.floor(Date.now() / 1000) + 900,
       };
-      const b64 = (obj: unknown): string =>
-        Buffer.from(JSON.stringify(obj)).toString('base64url');
+      const b64 = (obj: unknown): string => Buffer.from(JSON.stringify(obj)).toString('base64url');
       const mockJwt = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64(payload)}.sig`;
       return ok({
         accessToken: mockJwt,
@@ -530,7 +557,41 @@ export async function installMockApi(page: Page, state: MockState): Promise<void
         cancelledAt: null,
       });
     if (method === 'POST' && path === `/internships/${INTERNSHIP_ID}/workflow/actions`) {
-      const body = route.request().postDataJSON() as { targetStepCode?: string };
+      const body = route.request().postDataJSON() as {
+        targetStepCode?: string;
+        actionType?: string;
+        decision?: string;
+        comment?: string;
+      };
+      // Administrative validation on COMPLETED: audited, status unchanged.
+      if (
+        body?.targetStepCode === 'COMPLETED' &&
+        state.internshipStatus === 'COMPLETED' &&
+        body?.actionType === 'VALIDATION' &&
+        body?.decision
+      ) {
+        const action = {
+          id: `act-v${state.validationActions.length + 1}`,
+          decision: body.decision,
+          comment: body.comment ?? null,
+          sequenceNumber: 10 + state.validationActions.length,
+          performedAt: new Date().toISOString(),
+        };
+        state.validationActions.push(action);
+        return ok({
+          id: action.id,
+          instanceId: 'wf-ship-1',
+          stepCode: 'COMPLETED',
+          stepName: 'COMPLETED',
+          performedById: 'u-hr',
+          performedByUsername: 'hr.steg',
+          type: 'VALIDATION',
+          decision: action.decision,
+          comment: action.comment,
+          sequenceNumber: action.sequenceNumber,
+          performedAt: action.performedAt,
+        });
+      }
       if (body?.targetStepCode) state.internshipStatus = body.targetStepCode;
       return ok({
         id: 'act-s1',
@@ -546,9 +607,37 @@ export async function installMockApi(page: Page, state: MockState): Promise<void
         performedAt: new Date().toISOString(),
       });
     }
-    if (method === 'GET' && path === '/workflows/wf-ship-1/actions') return ok([]);
+    if (method === 'GET' && path === '/workflows/wf-ship-1/actions')
+      return ok(
+        state.validationActions.map((a) => ({
+          id: a.id,
+          instanceId: 'wf-ship-1',
+          stepCode: 'COMPLETED',
+          stepName: 'COMPLETED',
+          performedById: 'u-hr',
+          performedByUsername: 'hr.steg',
+          type: 'VALIDATION',
+          decision: a.decision,
+          comment: a.comment,
+          sequenceNumber: a.sequenceNumber,
+          performedAt: a.performedAt,
+        })),
+      );
     if (method === 'GET' && path === `/internships/${INTERNSHIP_ID}/documents`) return ok([]);
     if (method === 'POST' && path === `/internships/${INTERNSHIP_ID}/certificates`) {
+      const latest = state.validationActions[state.validationActions.length - 1];
+      if (!latest || latest.decision !== 'APPROVED') {
+        return route.fulfill({
+          status: 422,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 422,
+            error: 'Unprocessable Entity',
+            message: 'Certificates require a prior APPROVED administrative validation decision.',
+            path: `/api/internships/${INTERNSHIP_ID}/certificates`,
+          }),
+        });
+      }
       state.certificate = { id: 'cert-1', reference: 'CERT-2026-000003' };
       return ok(
         {
@@ -571,6 +660,121 @@ export async function installMockApi(page: Page, state: MockState): Promise<void
         contentType: 'application/pdf',
         body: Buffer.from('%PDF-1.4 mock certificate'),
       });
+
+    // --- supervision workspace (companion + evaluation) ---
+    if (method === 'PUT' && path === '/candidates/cand-1') {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      return ok({
+        id: 'cand-1',
+        firstName: body['firstName'] ?? 'Amira',
+        lastName: body['lastName'] ?? 'Ben Salah',
+        email: body['email'] ?? 'amira.ben.salah@example.tn',
+        phone: body['phone'] ?? '+21620000000',
+        birthDate: body['birthDate'] ?? '2003-05-01',
+        address: body['address'] ?? 'Tunis',
+        speciality: body['speciality'] ?? 'Informatique',
+        diploma: body['diploma'] ?? 'Licence',
+        skills: body['skills'] ?? 'Java, Angular',
+        languages: body['languages'] ?? 'ar, fr, en',
+        nationalId: '••••••••',
+        universityId: body['universityId'] ?? 'univ-1',
+        universityName: 'ENIT',
+        userId: 'u-cand',
+        createdAt: '2026-01-10T09:00:00Z',
+        updatedAt: new Date().toISOString(),
+        version: 1,
+      });
+    }
+    if (method === 'GET' && path === `/internships/${INTERNSHIP_ID}/tasks`)
+      return ok(pageOf(state.tasks));
+    if (method === 'POST' && path === `/internships/${INTERNSHIP_ID}/tasks`) {
+      const body = route.request().postDataJSON() as { title?: string; dueDate?: string };
+      const task = {
+        id: `task-${state.tasks.length + 1}`,
+        title: body?.title ?? 'Nouvelle tâche',
+        status: 'TODO',
+        dueDate: body?.dueDate ?? null,
+      };
+      state.tasks.push(task);
+      return ok({ ...task, internshipId: INTERNSHIP_ID }, 201);
+    }
+    if (method === 'PATCH' && path.startsWith('/internships/tasks/')) {
+      const id = path.split('/')[3] ?? '';
+      const status = url.searchParams.get('status') ?? 'COMPLETED';
+      const task = state.tasks.find((t) => t.id === id);
+      if (task) task.status = status;
+      return ok({
+        ...(task ?? { id, title: 'Tâche', dueDate: null }),
+        internshipId: INTERNSHIP_ID,
+        status,
+      });
+    }
+    if (method === 'GET' && path === `/internships/${INTERNSHIP_ID}/journal/entries`)
+      return ok(pageOf(state.journal));
+    if (method === 'POST' && path.startsWith('/internships/journal/entries/')) {
+      const parts = path.split('/');
+      const id = parts[4] ?? '';
+      const action = parts[5] ?? '';
+      const entry = state.journal.find((j) => j.id === id);
+      if (entry) entry.status = action === 'validate' ? 'VALIDATED' : 'REJECTED';
+      return ok({ ...(entry ?? { id, title: 'Écriture', entryDate: '2026-02-14' }) });
+    }
+    if (method === 'GET' && path === `/internships/${INTERNSHIP_ID}/deliverables`)
+      return ok(pageOf(state.deliverables));
+    if (method === 'POST' && path.startsWith('/internships/deliverables/')) {
+      const parts = path.split('/');
+      const id = parts[3] ?? '';
+      const action = parts[4] ?? '';
+      if (action === 'validate' || action === 'reject') {
+        const del = state.deliverables.find((d) => d.id === id);
+        if (del) del.status = action === 'validate' ? 'VALIDATED' : 'REJECTED';
+        return ok({ ...(del ?? { id, title: 'Rapport' }) });
+      }
+    }
+    if (
+      method === 'GET' &&
+      path.startsWith('/internships/deliverables/') &&
+      path.endsWith('/download')
+    )
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/pdf',
+        body: Buffer.from('%PDF-1.4 mock deliverable'),
+      });
+    if (method === 'GET' && path === `/internships/${INTERNSHIP_ID}/evaluations`)
+      return ok(pageOf(state.evaluations));
+    if (method === 'POST' && path === `/internships/${INTERNSHIP_ID}/evaluations`) {
+      const body = route.request().postDataJSON() as { type?: string; evaluationDate?: string };
+      const evaluation = {
+        id: `eval-${state.evaluations.length + 1}`,
+        type: body?.type ?? 'FINAL',
+        evaluationDate: body?.evaluationDate ?? '2026-07-30',
+        totalScore: null,
+      };
+      state.evaluations.push(evaluation);
+      return ok({ ...evaluation, internshipId: INTERNSHIP_ID }, 201);
+    }
+    if (method === 'GET' && path === '/evaluation-templates') return ok([]);
+
+    // --- AI assistant (role-scoped; canned advisory answer in E2E) ---
+    if (method === 'POST' && path === '/ai/assistant/query') {
+      const body = route.request().postDataJSON() as { question?: string };
+      return ok({
+        analysis: {
+          id: 'ai-1',
+          type: 'STAFF_ASSISTANT_QUERY',
+          relatedEntityType: 'User',
+          relatedEntityId: 'u-hr',
+          modelUsed: 'mock-gemini',
+          inputSummary: 'staff scope',
+          outputSummary: 'mock answer',
+          cinExcluded: true,
+          createdAt: new Date().toISOString(),
+        },
+        recommendations: [],
+        responseText: `Réponse consultative (mock) : ${(body?.question ?? '').slice(0, 80)} — 1 candidature en attente, 1 stage terminé à valider.`,
+      });
+    }
 
     // --- organization reference data ---
     if (method === 'GET' && path === '/departments')
@@ -705,7 +909,7 @@ export async function installMockApi(page: Page, state: MockState): Promise<void
             oldValues: null,
             newValues: '{"status":"APPROVED"}',
             actorId: 'u-fin',
-            actorEmail: 'finance@steg.tn',
+            actorEmail: 'admin@steg.tn',
             ipAddress: '10.0.0.2',
           },
         ],
@@ -724,7 +928,7 @@ export async function installMockApi(page: Page, state: MockState): Promise<void
         oldValues: '{"status":"READY_FOR_DECISION"}',
         newValues: '{"status":"APPROVED"}',
         actorId: 'u-fin',
-        actorEmail: 'finance@steg.tn',
+        actorEmail: 'admin@steg.tn',
         ipAddress: '10.0.0.2',
       });
 
@@ -764,11 +968,14 @@ export async function installMockApi(page: Page, state: MockState): Promise<void
 export async function loginAs(
   page: Page,
   email: string,
-  _role: 'HR' | 'SUPERVISOR' | 'FINANCE' | 'DIRECTOR' | 'ADMIN',
+  _role: 'ADMIN' | 'SUPERVISOR',
 ): Promise<void> {
   await page.goto('/login');
   await page.getByLabel(/e-mail|email/i).fill(email);
   await page.getByLabel(/mot de passe|password/i).fill('Password123!');
   await page.getByRole('button', { name: /se connecter|sign in/i }).click();
-  await page.waitForURL('**/dashboard');
+  // ADMIN lands on the dashboard, SUPERVISOR on their dashboard.
+  await page.waitForURL((url) =>
+    /\/dashboard|\/supervisor-dashboard|\/supervisor/.test(url.pathname),
+  );
 }

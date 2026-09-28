@@ -5,6 +5,7 @@ import { SidebarComponent } from './sidebar.component';
 import { TopbarComponent } from './topbar.component';
 import { BreadcrumbsComponent } from './breadcrumbs.component';
 import { ToastsComponent } from '../shared/ui/toasts.component';
+import { AssistantPanelComponent } from '../features/ai/assistant-panel.component';
 import { I18nService } from '../core/i18n.service';
 import { AuthService } from '../core/auth.service';
 import { visibleNav } from '../core/roles';
@@ -16,7 +17,14 @@ import { visibleNav } from '../core/roles';
 @Component({
   selector: 'st-shell',
   standalone: true,
-  imports: [RouterOutlet, SidebarComponent, TopbarComponent, BreadcrumbsComponent, ToastsComponent],
+  imports: [
+    RouterOutlet,
+    SidebarComponent,
+    TopbarComponent,
+    BreadcrumbsComponent,
+    ToastsComponent,
+    AssistantPanelComponent,
+  ],
   template: `
     <a class="st-skip" href="#st-content">{{ i18n.t('shell.skipToContent') }}</a>
     <div class="st-shell">
@@ -45,6 +53,7 @@ import { visibleNav } from '../core/roles';
       </div>
     </div>
     <st-toasts />
+    <st-assistant-panel />
   `,
   styles: [
     `
@@ -88,13 +97,17 @@ import { visibleNav } from '../core/roles';
           inset-block: 0;
           inset-inline-start: 0;
           transform: translateX(-110%);
-          transition: transform 0.2s ease;
+          transition:
+            transform 0.2s ease,
+            visibility 0.2s;
+          visibility: hidden;
         }
         :host-context([dir='rtl']) .st-shell__side {
           transform: translateX(110%);
         }
         .st-shell__side--open {
           transform: none !important;
+          visibility: visible;
         }
       }
     `,

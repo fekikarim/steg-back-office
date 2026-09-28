@@ -1,18 +1,22 @@
 import { Component, inject, signal, OnInit, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { forkJoin, of, catchError } from 'rxjs';
 import { I18nService } from '../../core/i18n.service';
 import { BreadcrumbService } from '../../core/breadcrumb.service';
 import { RealtimeService } from '../../core/realtime.service';
+import { AuthService } from '../../core/auth.service';
 import { ApiClient } from '../../core/api-client.service';
+import { ToastService } from '../../shared/ui/toast.service';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 import { LiveStatusComponent } from '../../shared/ui/live-status.component';
 import { BadgeComponent } from '../../shared/ui/badge.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { ErrorStateComponent } from '../../shared/ui/states.component';
 import { AlertComponent } from '../../shared/ui/alert.component';
-import type { ApplicationDetail, CandidateDetail } from '../../core/api-models';
+import { DialogComponent } from '../../shared/ui/dialog.component';
+import type { ApplicationDetail, CandidateDetail, University } from '../../core/api-models';
 
 /**
  * Candidate detail: identity, academic data, application history, documents
@@ -24,12 +28,14 @@ import type { ApplicationDetail, CandidateDetail } from '../../core/api-models';
   standalone: true,
   imports: [
     RouterLink,
+    FormsModule,
     PageHeaderComponent,
     LiveStatusComponent,
     BadgeComponent,
     SkeletonComponent,
     ErrorStateComponent,
     AlertComponent,
+    DialogComponent,
   ],
   template: `
     @if (loading()) {
@@ -48,6 +54,11 @@ import type { ApplicationDetail, CandidateDetail } from '../../core/api-models';
       <st-page-header [title]="c.firstName + ' ' + c.lastName" [subtitle]="c.universityName">
         <st-live-status />
         <a routerLink="/candidates" class="st-btn st-btn--secondary">{{ i18n.t('common.back') }}</a>
+        @if (canEdit()) {
+          <button type="button" class="st-btn st-btn--primary" (click)="openEdit()">
+            {{ i18n.t('common.edit') }}
+          </button>
+        }
       </st-page-header>
 
       <div class="st-grid">
@@ -138,6 +149,93 @@ import type { ApplicationDetail, CandidateDetail } from '../../core/api-models';
           </ul>
         }
       </section>
+
+      <!-- Staff profile correction -->
+      <st-dialog
+        [open]="editOpen()"
+        [title]="i18n.t('candidateDetail.editTitle')"
+        (close)="editOpen.set(false)"
+      >
+        <div class="st-grid2">
+          <label class="st-field">
+            <span class="st-field__label">{{ i18n.t('dossier.firstName') }} *</span>
+            <input type="text" class="st-input" [(ngModel)]="editForm.firstName" dir="auto" />
+          </label>
+          <label class="st-field">
+            <span class="st-field__label">{{ i18n.t('dossier.lastName') }} *</span>
+            <input type="text" class="st-input" [(ngModel)]="editForm.lastName" dir="auto" />
+          </label>
+          <label class="st-field">
+            <span class="st-field__label">{{ i18n.t('dossier.email') }} *</span>
+            <input type="email" class="st-input" [(ngModel)]="editForm.email" dir="ltr" />
+          </label>
+          <label class="st-field">
+            <span class="st-field__label">{{ i18n.t('dossier.phone') }}</span>
+            <input type="tel" class="st-input" [(ngModel)]="editForm.phone" dir="ltr" />
+          </label>
+          <label class="st-field">
+            <span class="st-field__label">{{ i18n.t('dossier.birthDate') }}</span>
+            <input type="date" class="st-input" [(ngModel)]="editForm.birthDate" />
+          </label>
+          <label class="st-field">
+            <span class="st-field__label">{{ i18n.t('dossier.university') }} *</span>
+            <select class="st-input" [(ngModel)]="editForm.universityId">
+              <option value="">—</option>
+              @for (u of universities(); track u.id) {
+                <option [value]="u.id">{{ u.name }}</option>
+              }
+            </select>
+          </label>
+          <label class="st-field">
+            <span class="st-field__label">{{ i18n.t('dossier.speciality') }}</span>
+            <input type="text" class="st-input" [(ngModel)]="editForm.speciality" dir="auto" />
+          </label>
+          <label class="st-field">
+            <span class="st-field__label">{{ i18n.t('dossier.diploma') }}</span>
+            <input type="text" class="st-input" [(ngModel)]="editForm.diploma" dir="auto" />
+          </label>
+          <label class="st-field st-field--full">
+            <span class="st-field__label">{{ i18n.t('dossier.address') }}</span>
+            <input type="text" class="st-input" [(ngModel)]="editForm.address" dir="auto" />
+          </label>
+          <label class="st-field">
+            <span class="st-field__label">{{ i18n.t('candidateDetail.skills') }}</span>
+            <input type="text" class="st-input" [(ngModel)]="editForm.skills" dir="auto" />
+          </label>
+          <label class="st-field">
+            <span class="st-field__label">{{ i18n.t('candidateDetail.languages') }}</span>
+            <input type="text" class="st-input" [(ngModel)]="editForm.languages" dir="auto" />
+          </label>
+          <label class="st-field st-field--full">
+            <span class="st-field__label">{{ i18n.t('dossier.nationalId') }} *</span>
+            <input
+              type="text"
+              class="st-input"
+              [(ngModel)]="editForm.nationalId"
+              dir="ltr"
+              inputmode="numeric"
+              autocomplete="off"
+            />
+          </label>
+        </div>
+        <p class="st-hint">{{ i18n.t('candidateDetail.editHint') }}</p>
+        @if (editError()) {
+          <st-alert tone="error">{{ editError() }}</st-alert>
+        }
+        <div slot="footer" class="st-dialog__actions">
+          <button type="button" class="st-btn st-btn--secondary" (click)="editOpen.set(false)">
+            {{ i18n.t('common.cancel') }}
+          </button>
+          <button
+            type="button"
+            class="st-btn st-btn--primary"
+            [disabled]="busy() || !editValid()"
+            (click)="saveEdit()"
+          >
+            {{ i18n.t('common.save') }}
+          </button>
+        </div>
+      </st-dialog>
     }
   `,
   styles: [
@@ -215,6 +313,19 @@ import type { ApplicationDetail, CandidateDetail } from '../../core/api-models';
       .st-app:hover {
         border-color: var(--action-primary);
       }
+      .st-grid2 {
+        display: grid;
+        gap: 0.6rem;
+        grid-template-columns: 1fr 1fr;
+      }
+      .st-field--full {
+        grid-column: 1 / -1;
+      }
+      .st-dialog__actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+      }
       @media (max-width: 900px) {
         .st-grid {
           grid-template-columns: 1fr;
@@ -227,16 +338,41 @@ export class CandidateDetailComponent implements OnInit {
   readonly i18n = inject(I18nService);
   private readonly crumbs = inject(BreadcrumbService);
   private readonly api = inject(ApiClient);
+  private readonly auth = inject(AuthService);
+  private readonly toast = inject(ToastService);
   private readonly realtime = inject(RealtimeService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
   readonly loading = signal(true);
+  readonly busy = signal(false);
   readonly error = signal(false);
   readonly candidate = signal<CandidateDetail | null>(null);
   readonly applications = signal<readonly ApplicationDetail[]>([]);
   readonly cinRevealed = signal(false);
+  readonly universities = signal<readonly University[]>([]);
+
+  readonly editOpen = signal(false);
+  readonly editError = signal('');
+  readonly editForm = {
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    birthDate: '',
+    universityId: '',
+    speciality: '',
+    diploma: '',
+    address: '',
+    skills: '',
+    languages: '',
+    nationalId: '',
+  };
+
+  canEdit(): boolean {
+    return this.auth.hasPermission('APPLICATION_REVIEW');
+  }
 
   ngOnInit(): void {
     this.crumbs.set([
@@ -275,6 +411,78 @@ export class CandidateDetailComponent implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  openEdit(): void {
+    const c = this.candidate();
+    if (!c) return;
+    this.editForm.firstName = c.firstName;
+    this.editForm.lastName = c.lastName;
+    this.editForm.email = c.email;
+    this.editForm.phone = c.phone ?? '';
+    this.editForm.birthDate = c.birthDate ?? '';
+    this.editForm.universityId = c.universityId;
+    this.editForm.speciality = c.speciality ?? '';
+    this.editForm.diploma = c.diploma ?? '';
+    this.editForm.address = c.address ?? '';
+    this.editForm.skills = c.skills ?? '';
+    this.editForm.languages = c.languages ?? '';
+    // CIN is never prefilled in cleartext: the masked value cannot round-trip.
+    this.editForm.nationalId = '';
+    this.editError.set('');
+    if (this.universities().length === 0) {
+      this.api.listUniversities().subscribe({
+        next: (rows) => this.universities.set(rows.filter((u) => u.active)),
+        error: () => this.universities.set([]),
+      });
+    }
+    this.editOpen.set(true);
+  }
+
+  editValid(): boolean {
+    return (
+      this.editForm.firstName.trim() !== '' &&
+      this.editForm.lastName.trim() !== '' &&
+      this.editForm.email.trim() !== '' &&
+      this.editForm.universityId !== '' &&
+      this.editForm.nationalId.trim() !== ''
+    );
+  }
+
+  saveEdit(): void {
+    const c = this.candidate();
+    if (!c || !this.editValid()) return;
+    this.busy.set(true);
+    this.editError.set('');
+    const opt = (v: string): string | null => (v.trim() ? v.trim() : null);
+    this.api
+      .updateCandidate(c.id, {
+        firstName: this.editForm.firstName.trim(),
+        lastName: this.editForm.lastName.trim(),
+        email: this.editForm.email.trim(),
+        phone: opt(this.editForm.phone),
+        birthDate: opt(this.editForm.birthDate),
+        address: opt(this.editForm.address),
+        speciality: opt(this.editForm.speciality),
+        diploma: opt(this.editForm.diploma),
+        skills: opt(this.editForm.skills),
+        languages: opt(this.editForm.languages),
+        universityId: this.editForm.universityId,
+        nationalId: this.editForm.nationalId.trim(),
+      })
+      .subscribe({
+        next: () => {
+          this.busy.set(false);
+          this.editOpen.set(false);
+          this.toast.show('success', this.i18n.t('candidateDetail.editSaved'));
+          this.load();
+        },
+        error: (e: unknown) => {
+          this.busy.set(false);
+          const envelope = (e as { error?: { message?: string } }).error;
+          this.editError.set(envelope?.message ?? this.i18n.t('common.error.body'));
+        },
+      });
   }
 
   statusTone(status: string): 'success' | 'error' | 'warning' | 'info' | 'neutral' {

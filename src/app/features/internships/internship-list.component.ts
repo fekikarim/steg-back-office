@@ -9,6 +9,7 @@ import { AuthService } from '../../core/auth.service';
 import { ApiClient } from '../../core/api-client.service';
 import { InternshipService, activeAssignment } from './internship.service';
 import { InternshipQueueStore } from './internship-queue-store';
+import { readRememberedSupervisor, rememberSupervisor } from './supervisor-scope';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 import { LiveStatusComponent } from '../../shared/ui/live-status.component';
 import { DataTableComponent, type SortState } from '../../shared/ui/data-table.component';
@@ -24,8 +25,6 @@ interface InternshipRow extends InternshipDetail {
   supervisorName: string;
   departmentName: string;
 }
-
-const MY_SUPERVISOR_KEY = 'st-mine-supervisor';
 
 /**
  * Staff internship list (ADMIN/HR/SUPERVISOR). The backend list carries no
@@ -401,23 +400,6 @@ function distinctSupervisors(map: Map<string, InternshipAssignment[]>): string[]
     if (current) names.add(current.supervisorName);
   }
   return [...names].sort((a, b) => a.localeCompare(b));
-}
-
-function readRememberedSupervisor(): string {
-  try {
-    return localStorage.getItem(MY_SUPERVISOR_KEY) ?? '';
-  } catch {
-    return '';
-  }
-}
-
-function rememberSupervisor(name: string): void {
-  try {
-    if (name) localStorage.setItem(MY_SUPERVISOR_KEY, name);
-    else localStorage.removeItem(MY_SUPERVISOR_KEY);
-  } catch {
-    /* storage unavailable — filter still works for the session */
-  }
 }
 
 function extractMessage(error: unknown): string {

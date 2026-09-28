@@ -83,7 +83,7 @@ const NORMAL_DOC = {
 } as DossierBundle['documents'][number];
 
 describe('ApplicationDossierComponent', () => {
-  async function setup(role: 'HR' | 'SUPERVISOR', snap: DossierBundle) {
+  async function setup(role: 'ADMIN' | 'SUPERVISOR', snap: DossierBundle) {
     const calls: { method: string; args: unknown[] }[] = [];
     await TestBed.configureTestingModule({
       imports: [ApplicationDossierComponent],
@@ -120,7 +120,10 @@ describe('ApplicationDossierComponent', () => {
         },
       ],
     }).compileComponents();
-    TestBed.inject(AuthService).signInDemo(role === 'HR' ? 'rh@steg.tn' : 'sup@steg.tn', role);
+    TestBed.inject(AuthService).signInDemo(
+      role === 'ADMIN' ? 'admin@steg.tn' : 'sup@steg.tn',
+      role,
+    );
     const fixture = TestBed.createComponent(ApplicationDossierComponent);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -136,14 +139,14 @@ describe('ApplicationDossierComponent', () => {
   });
 
   it('shows accept/correct/reject for UNDER_REVIEW with review permission', async () => {
-    const { fixture } = await setup('HR', bundle());
+    const { fixture } = await setup('ADMIN', bundle());
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('Accepter');
     expect(text).toContain('Rejeter');
   });
 
   it('blocks short rejection reasons client-side (backend stays authoritative)', async () => {
-    const { fixture, calls } = await setup('HR', bundle());
+    const { fixture, calls } = await setup('ADMIN', bundle());
     const component = fixture.componentInstance;
     component.openReason('reject');
     component.reasonText = 'no';
@@ -158,7 +161,7 @@ describe('ApplicationDossierComponent', () => {
   });
 
   it('disables restricted downloads without DOCUMENT_VIEW_RESTRICTED', async () => {
-    const { fixture } = await setup('HR', bundle({ documents: [RESTRICTED_DOC] }));
+    const { fixture } = await setup('SUPERVISOR', bundle({ documents: [RESTRICTED_DOC] }));
     const component = fixture.componentInstance;
     component.tab.set('documents');
     fixture.detectChanges();
@@ -168,7 +171,7 @@ describe('ApplicationDossierComponent', () => {
   });
 
   it('downloads with the original filename (not a blob-UUID name)', async () => {
-    const { fixture } = await setup('HR', bundle({ documents: [NORMAL_DOC] }));
+    const { fixture } = await setup('ADMIN', bundle({ documents: [NORMAL_DOC] }));
     const component = fixture.componentInstance;
     const clicked: HTMLAnchorElement[] = [];
     const origCreate = document.createElement.bind(document);
@@ -195,7 +198,7 @@ describe('ApplicationDossierComponent', () => {
 
   it('renders the real workflow timeline and masks CIN by default', async () => {
     const { fixture } = await setup(
-      'HR',
+      'ADMIN',
       bundle({
         candidate: {
           id: 'c1',

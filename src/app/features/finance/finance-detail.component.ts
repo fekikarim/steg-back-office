@@ -65,14 +65,16 @@ type ReasonKind = 'approve' | 'reject' | 'doc-review' | null;
         <st-live-status />
         <a routerLink="/finance" class="st-btn st-btn--secondary">{{ i18n.t('common.back') }}</a>
         @if (canDecide() && isDecidable(dossier.financeCase.status)) {
-          <button
-            type="button"
-            class="st-btn st-btn--primary"
-            (click)="openReason('approve')"
-            [disabled]="busy()"
-          >
-            {{ i18n.t('finance.approve') }}
-          </button>
+          @if (isEligible(dossier)) {
+            <button
+              type="button"
+              class="st-btn st-btn--primary"
+              (click)="openReason('approve')"
+              [disabled]="busy()"
+            >
+              {{ i18n.t('finance.approve') }}
+            </button>
+          }
           <button
             type="button"
             class="st-btn st-btn--danger"
@@ -92,7 +94,14 @@ type ReasonKind = 'approve' | 'reject' | 'doc-review' | null;
         @if (isDecidable(dossier.financeCase.status)) {
           <st-badge [label]="i18n.t('finance.awaitingDecision')" tone="warning" icon="alert" />
         }
+        <st-badge
+          [label]="isEligible(dossier) ? i18n.t('finance.eligible') : i18n.t('finance.notEligible')"
+          [tone]="isEligible(dossier) ? 'success' : 'error'"
+        />
       </p>
+      @if (canDecide() && isDecidable(dossier.financeCase.status) && !isEligible(dossier)) {
+        <st-alert tone="warning">{{ i18n.t('finance.ineligibleHint') }}</st-alert>
+      }
 
       <st-tabs
         [tabs]="tabs(dossier)"
@@ -188,7 +197,7 @@ type ReasonKind = 'approve' | 'reject' | 'doc-review' | null;
                 [body]="i18n.t('finance.noCalculation')"
               />
             }
-            @if (canReviewDocs() && isDecidable(dossier.financeCase.status)) {
+            @if (canCurateDossier() && isDecidable(dossier.financeCase.status)) {
               <button
                 type="button"
                 class="st-btn st-btn--secondary"
@@ -277,7 +286,7 @@ type ReasonKind = 'approve' | 'reject' | 'doc-review' | null;
                     >
                       <st-icon name="download" [size]="14" /> {{ i18n.t('common.download') }}
                     </button>
-                    @if (canReviewDocs() && isDecidable(dossier.financeCase.status)) {
+                    @if (canCurateDossier() && isDecidable(dossier.financeCase.status)) {
                       <button
                         type="button"
                         class="st-btn st-btn--secondary"
@@ -758,18 +767,25 @@ export class FinanceDetailComponent implements OnInit {
     return dossier.internship?.candidateFullName ?? dossier.financeCase.internshipReference;
   }
 
-  /** FINANCE role only — backend enforces hasRole('FINANCE') on approve/reject. */
+  /**
+   * ADMIN decides any case; SUPERVISOR decides assigned cases only.
+   * Backend re-checks scope server-side — a 403 surfaces as an error toast.
+   */
   canDecide(): boolean {
-    return this.auth.role() === 'FINANCE';
+    const role = this.auth.role();
+    return role === 'ADMIN' || role === 'SUPERVISOR';
   }
 
-  canReviewDocs(): boolean {
-    return this.auth.hasPermission('FINANCE_CASE_VIEW');
+  /**
+   * Dossier curation (recalculate, verify documents) is ADMIN-only.
+   * Supervisors decide (approve/reject) and download — they never curate.
+   */
+  canCurateDossier(): boolean {
+    return this.auth.role() === 'ADMIN';
   }
 
   canAnalyze(): boolean {
-    const role = this.auth.role();
-    return role === 'FINANCE' || role === 'ADMIN';
+    return this.auth.role() === 'ADMIN';
   }
 
   canViewRestrictedDocs(): boolean {
@@ -778,6 +794,15 @@ export class FinanceDetailComponent implements OnInit {
 
   isDecidable(status: string): boolean {
     return ['OPENED', 'UNDER_REVIEW', 'DOCUMENTS_MISSING', 'READY_FOR_DECISION'].includes(status);
+  }
+
+  /**
+   * Receipts exist only for eligible obligatory internships. Unknown
+   * (unloaded) internship data is treated as ineligible — never assume.
+   * Backend re-checks at decision time (INTERNSHIP_NOT_PAYABLE).
+   */
+  isEligible(dossier: Bundle): boolean {
+    return dossier.internship?.paymentEligible === true;
   }
 
   isRestricted(item: FinanceDossierDoc): boolean {

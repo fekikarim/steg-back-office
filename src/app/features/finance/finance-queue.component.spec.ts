@@ -75,7 +75,7 @@ describe('FinanceQueueComponent', () => {
         },
       ],
     }).compileComponents();
-    TestBed.inject(AuthService).signInDemo('fin@steg.tn', 'FINANCE');
+    TestBed.inject(AuthService).signInDemo('admin@steg.tn', 'ADMIN');
     TestBed.inject(I18nService).setLocale('en');
     const fixture = TestBed.createComponent(FinanceQueueComponent);
     fixture.detectChanges();

@@ -91,9 +91,6 @@ interface QueueRow extends ApplicationDetail {
         </select>
       </label>
       <st-date-range (apply)="onDates($event)" (reset)="onDates({ from: '', to: '' })" />
-      <button type="button" class="st-btn st-btn--primary" (click)="onFilter()">
-        {{ i18n.t('common.apply') }}
-      </button>
     </section>
 
     @if (error()) {

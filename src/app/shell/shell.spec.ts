@@ -40,7 +40,7 @@ describe('ShellComponent', () => {
 
   it('renders sidebar nav and topbar session controls', () => {
     const auth = TestBed.inject(AuthService);
-    auth.signInDemo('rh@steg.tn', 'HR');
+    auth.signInDemo('admin@steg.tn', 'ADMIN');
     const fixture = TestBed.createComponent(ShellComponent);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('st-sidebar')).toBeTruthy();
@@ -51,14 +51,17 @@ describe('ShellComponent', () => {
 
   it('shows role-aware navigation (UX convenience, backend still authoritative)', () => {
     const auth = TestBed.inject(AuthService);
-    auth.signInDemo('fin@steg.tn', 'FINANCE');
+    auth.signInDemo('sup@steg.tn', 'SUPERVISOR');
     const fixture = TestBed.createComponent(ShellComponent);
     fixture.detectChanges();
     const links = [...fixture.nativeElement.querySelectorAll('.st-side__link')].map((a: Element) =>
       a.getAttribute('href'),
     );
     expect(links).toContain('/finance');
+    expect(links).toContain('/supervisor');
     expect(links).not.toContain('/admin');
+    expect(links).not.toContain('/candidates');
+    expect(links).not.toContain('/tasks');
   });
 
   it('sidebar collapses and drawer toggles', () => {

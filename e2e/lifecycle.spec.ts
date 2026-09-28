@@ -16,7 +16,7 @@ test.describe('staff lifecycle', () => {
     page,
   }) => {
     // --- HR: review & accept ---
-    await loginAs(page, 'rh@steg.tn', 'HR');
+    await loginAs(page, 'admin@steg.tn', 'ADMIN');
     await page.goto('/applications');
     await page.getByRole('link', { name: 'APP-2026-000123' }).click();
     await expect(page).toHaveURL(/\/applications\/app-1$/);
@@ -53,17 +53,31 @@ test.describe('staff lifecycle', () => {
     await dialog.getByRole('button', { name: 'Confirmer' }).click();
     await expect(page.getByText('Leila Mansour').first()).toBeVisible();
 
-    // --- HR: complete + certificate ---
+    // --- HR: complete → supervisor-style final review → validation → certificate ---
     await page.getByRole('tab', { name: 'Aperçu' }).click();
     await page.getByRole('button', { name: 'Clôturer' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Confirmer' }).click();
+    // Final evaluation first (ADMIN performs both roles here).
+    await page.getByRole('tab', { name: 'Suivi' }).click();
+    await page.getByLabel(/Date \*/).fill('2026-07-30');
+    await page
+      .getByLabel(/Appréciation|Feedback/)
+      .fill('Stage satisfaisant, objectifs atteints.');
+    await page.getByRole('button', { name: 'Soumettre l’évaluation' }).click();
+    await expect(page.getByText('FINAL').first()).toBeVisible();
+    // Certificate is gated on an APPROVED validation decision.
+    await page.getByRole('tab', { name: 'Validation' }).click();
+    await page.getByRole('button', { name: 'Valider le stage' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Confirmer' }).click();
+    await expect(page.getByText('APPROVED').first()).toBeVisible();
+    await page.getByRole('tab', { name: 'Aperçu' }).click();
     await page.getByRole('button', { name: 'Générer l’attestation' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Confirmer' }).click();
     await expect(page.getByText('CERT-2026-000003')).toBeVisible();
 
-    // --- FINANCE: review, approve, receipt ---
+    // --- ADMIN: finance review, approve, receipt ---
     await page.evaluate(() => localStorage.clear());
-    await loginAs(page, 'finance@steg.tn', 'FINANCE');
+    await loginAs(page, 'admin@steg.tn', 'ADMIN');
     await page.goto('/finance');
     await page.getByRole('link', { name: 'FIN-2026-000009' }).click();
     await expect(page).toHaveURL(/\/finance\/case-1$/);
@@ -87,7 +101,7 @@ test.describe('staff lifecycle', () => {
   });
 
   test('reject requires a reason and surfaces the rejected status', async ({ page }) => {
-    await loginAs(page, 'finance@steg.tn', 'FINANCE');
+    await loginAs(page, 'admin@steg.tn', 'ADMIN');
     await page.goto('/finance');
     await page.getByRole('link', { name: 'FIN-2026-000009' }).click();
     await page.getByRole('button', { name: 'Rejeter le paiement' }).click();

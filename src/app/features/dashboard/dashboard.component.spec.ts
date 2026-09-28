@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { DashboardComponent } from '../dashboard.component';
 import { DashboardService, type DashboardSnapshot } from './dashboard.service';
@@ -12,6 +12,7 @@ class StubComponent {}
 
 const stubRoutes = [
   { path: 'dashboard', component: StubComponent },
+  { path: 'supervisor-dashboard', component: StubComponent },
   { path: 'applications', component: StubComponent },
   { path: 'internships', component: StubComponent },
   { path: 'finance', component: StubComponent },
@@ -88,10 +89,7 @@ function snapshot(overrides: Partial<DashboardSnapshot> = {}): DashboardSnapshot
 }
 
 describe('DashboardComponent', () => {
-  async function setup(
-    role: 'HR' | 'FINANCE' | 'DIRECTOR' | 'SUPERVISOR',
-    snap: DashboardSnapshot,
-  ) {
+  async function setup(role: 'ADMIN' | 'SUPERVISOR', snap: DashboardSnapshot) {
     let calls = 0;
     await TestBed.configureTestingModule({
       imports: [DashboardComponent],
@@ -111,15 +109,15 @@ describe('DashboardComponent', () => {
     // English assertions below; component renders from dictionaries.
     TestBed.inject(I18nService).setLocale('en');
     const auth = TestBed.inject(AuthService);
-    auth.signInDemo(`${role.toLowerCase()}@steg.tn`, role);
+    auth.signInDemo(role === 'ADMIN' ? 'admin@steg.tn' : 'sup@steg.tn', role);
     const fixture = TestBed.createComponent(DashboardComponent);
     fixture.detectChanges();
     await fixture.whenStable();
     return { fixture, calls: () => calls };
   }
 
-  it('HR sees backend-derived KPIs (18 pending, 87 active, 3 corrections) with drill-downs', async () => {
-    const { fixture } = await setup('HR', snapshot());
+  it('ADMIN sees backend-derived KPIs (18 pending, 87 active, 3 corrections) with drill-downs', async () => {
+    const { fixture } = await setup('ADMIN', snapshot());
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('18');
     expect(text).toContain('87');
@@ -138,16 +136,16 @@ describe('DashboardComponent', () => {
     expect(withParams.some((h) => h?.includes('NEEDS_CORRECTION'))).toBe(true);
   });
 
-  it('FINANCE sees finance KPIs and queue, not operations KPIs', async () => {
-    const { fixture } = await setup('FINANCE', snapshot());
+  it('ADMIN sees finance KPIs and queue alongside operations KPIs', async () => {
+    const { fixture } = await setup('ADMIN', snapshot());
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('150');
     expect(text).toContain('FIN-2026-000041');
-    expect(text).not.toContain('Pending applications');
+    expect(text).toContain('Pending applications');
   });
 
-  it('DIRECTOR sees overview distributions with per-section sources', async () => {
-    const { fixture } = await setup('DIRECTOR', snapshot());
+  it('ADMIN sees overview distributions with per-section sources', async () => {
+    const { fixture } = await setup('ADMIN', snapshot());
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('PFE');
     expect(text).toContain('DSI');
@@ -155,25 +153,18 @@ describe('DashboardComponent', () => {
     expect(text).toContain('Source: GET /api/reports/test');
   });
 
-  it('renders unavailable note (not values) for 403-scoped reports', async () => {
-    const snap = snapshot({
-      applicationsByStatus: {
-        state: 'unavailable',
-        data: null,
-        source: 'GET /api/reports/applications-by-status',
-        loadedAt: null,
-      },
-    });
-    const { fixture } = await setup('SUPERVISOR', snap);
-    const text = fixture.nativeElement.textContent as string;
-    expect(text).toContain('Not available for your role');
+  it('SUPERVISOR is redirected to their dashboard', async () => {
+    const { fixture } = await setup('SUPERVISOR', snapshot());
+    await fixture.whenStable();
+    const router = TestBed.inject(Router);
+    expect(router.url).toBe('/supervisor-dashboard');
   });
 
   it('renders error state with retry for failed datasets', async () => {
     const snap = snapshot({
       activity: { state: 'error', data: null, source: 'GET /api/notifications', loadedAt: null },
     });
-    const { fixture, calls } = await setup('HR', snap);
+    const { fixture, calls } = await setup('ADMIN', snap);
     const retry = fixture.nativeElement.querySelector('st-error-state button') as HTMLButtonElement;
     expect(retry).toBeTruthy();
     retry.click();
@@ -190,7 +181,7 @@ describe('DashboardComponent', () => {
     }).compileComponents();
     TestBed.inject(I18nService).setLocale('en');
     const auth = TestBed.inject(AuthService);
-    auth.signInDemo('hr@steg.tn', 'HR');
+    auth.signInDemo('admin@steg.tn', 'ADMIN');
     const fixture = TestBed.createComponent(DashboardComponent);
     // Before first detection completes, loading skeleton is present
     fixture.detectChanges();
@@ -201,7 +192,7 @@ describe('DashboardComponent', () => {
   });
 
   it('has no manual refresh button — uses live WebSocket with update timestamp', async () => {
-    const { fixture } = await setup('HR', snapshot());
+    const { fixture } = await setup('ADMIN', snapshot());
     const refreshBtn = [...fixture.nativeElement.querySelectorAll('button')].find(
       (b: HTMLButtonElement) => b.textContent?.includes('Refresh'),
     );

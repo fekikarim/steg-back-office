@@ -46,18 +46,20 @@ import type { SupportedLocale } from '../core/dictionaries';
       </label>
       <div class="st-top__spacer"></div>
       <st-live-status />
-      <button
-        type="button"
-        class="st-icon-btn"
-        [attr.aria-label]="i18n.t('shell.notifications')"
-        [attr.title]="i18n.t('shell.notifications')"
-        (click)="openNotifications()"
-      >
-        <st-icon name="bell" [size]="18" />
-        @if (unread > 0) {
-          <span class="st-top__dot" aria-hidden="true">{{ unread > 9 ? '9+' : unread }}</span>
-        }
-      </button>
+      @if (canSeeNotifications()) {
+        <button
+          type="button"
+          class="st-icon-btn"
+          [attr.aria-label]="i18n.t('shell.notifications')"
+          [attr.title]="i18n.t('shell.notifications')"
+          (click)="openNotifications()"
+        >
+          <st-icon name="bell" [size]="18" />
+          @if (unread > 0) {
+            <span class="st-top__dot" aria-hidden="true">{{ unread > 9 ? '9+' : unread }}</span>
+          }
+        </button>
+      }
       <label class="st-top__select">
         <span class="st-sr-only">{{ i18n.t('shell.language') }}</span>
         <st-icon name="globe" [size]="16" />
@@ -315,6 +317,11 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
   openNotifications(): void {
     void this.router.navigate(['/notifications']);
+  }
+
+  /** Notifications management is an ADMIN surface. */
+  canSeeNotifications(): boolean {
+    return this.auth.hasPermission('NOTIFICATION_MANAGE');
   }
 
   onLocale(locale: SupportedLocale): void {

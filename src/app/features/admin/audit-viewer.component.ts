@@ -253,10 +253,11 @@ export class AuditViewerComponent implements OnInit, OnDestroy {
   private readonly toast = inject(ToastService);
 
   readonly columns = [
-    { key: 'createdAt', label: 'At', priority: 'low' as const },
-    { key: 'action', label: 'Action', priority: 'high' as const },
-    { key: 'entityType', label: 'Entity', priority: 'medium' as const },
-    { key: 'actor', label: 'Actor', priority: 'medium' as const },
+    { key: 'createdAt', label: this.i18n.t('audit.at'), priority: 'low' as const },
+    { key: 'action', label: this.i18n.t('audit.action'), priority: 'high' as const },
+    { key: 'entityType', label: this.i18n.t('audit.entity'), priority: 'medium' as const },
+    { key: 'actor', label: this.i18n.t('audit.actor'), priority: 'medium' as const },
+    { key: 'actions', label: this.i18n.t('audit.actions'), priority: 'low' as const },
   ];
 
   readonly loading = signal(true);

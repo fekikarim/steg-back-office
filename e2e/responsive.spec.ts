@@ -8,7 +8,7 @@ test.describe('responsive', () => {
   });
 
   test('mobile drawer navigation works and nothing overflows', async ({ page }) => {
-    await loginAs(page, 'rh@steg.tn', 'HR');
+    await loginAs(page, 'admin@steg.tn', 'ADMIN');
     await page.getByRole('button', { name: 'Menu' }).click();
     await expect(page.locator('.st-shell__side--open')).toBeAttached();
     await page.goto('/applications');
@@ -21,7 +21,7 @@ test.describe('responsive', () => {
   });
 
   test('dialogs fit small viewports', async ({ page }) => {
-    await loginAs(page, 'rh@steg.tn', 'HR');
+    await loginAs(page, 'admin@steg.tn', 'ADMIN');
     await page.goto('/applications');
     await page.getByRole('link', { name: 'APP-2026-000123' }).click();
     await page.getByRole('button', { name: 'Commencer l’instruction' }).click();
@@ -33,7 +33,7 @@ test.describe('responsive', () => {
   });
 
   test('200% zoom keeps the dashboard usable without horizontal scroll', async ({ page }) => {
-    await loginAs(page, 'rh@steg.tn', 'HR');
+    await loginAs(page, 'admin@steg.tn', 'ADMIN');
     await page.evaluate(() => {
       document.body.style.zoom = '200%';
     });

@@ -34,7 +34,7 @@ import { totalOf, type GroupCountDto } from '../../core/api-models';
       }
       .st-bars__row {
         display: grid;
-        grid-template-columns: minmax(7rem, 11rem) 1fr auto;
+        grid-template-columns: minmax(0, 10rem) minmax(0, 1fr) auto;
         align-items: center;
         gap: 0.6rem;
         font-size: 0.82rem;
@@ -44,6 +44,7 @@ import { totalOf, type GroupCountDto } from '../../core/api-models';
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        min-inline-size: 0;
       }
       .st-bars__track {
         display: block;
@@ -51,6 +52,7 @@ import { totalOf, type GroupCountDto } from '../../core/api-models';
         border-radius: 999px;
         background: var(--border-subtle);
         overflow: hidden;
+        min-inline-size: 1.5rem;
       }
       .st-bars__fill {
         display: block;

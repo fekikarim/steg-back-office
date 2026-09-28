@@ -11,7 +11,15 @@ import { ToastService } from '../../shared/ui/toast.service';
 @Component({ selector: 'st-stub', standalone: true, template: '' })
 class StubComponent {}
 
-function bundle(status: 'PLANNED' | 'ACTIVE' | 'COMPLETED'): InternshipBundle {
+function bundle(
+  status: 'PLANNED' | 'ACTIVE' | 'COMPLETED',
+  validation: InternshipBundle['validation'] = {
+    decision: null,
+    comment: null,
+    performedBy: null,
+    performedAt: null,
+  },
+): InternshipBundle {
   return {
     internship: {
       id: 'i1',
@@ -67,6 +75,42 @@ function bundle(status: 'PLANNED' | 'ACTIVE' | 'COMPLETED'): InternshipBundle {
     documents: [],
     actions: [],
     actionsRestricted: false,
+    validation,
+    tasks: [
+      {
+        id: 't1',
+        internshipId: 'i1',
+        createdById: null,
+        createdByEmail: null,
+        assignedToId: null,
+        assignedToEmail: null,
+        title: 'Draft report',
+        description: null,
+        status: 'IN_PROGRESS',
+        dueDate: null,
+        completedAt: null,
+        createdAt: '2026-07-02T00:00:00Z',
+        updatedAt: '2026-07-02T00:00:00Z',
+      },
+    ],
+    journal: [],
+    deliverables: [],
+    evaluations: [
+      {
+        id: 'e1',
+        internshipId: 'i1',
+        evaluatorId: 's1',
+        evaluatorEmail: 'sup@steg.tn',
+        templateId: null,
+        templateName: null,
+        type: 'FINAL',
+        evaluationDate: '2026-09-28',
+        feedback: 'Good',
+        totalScore: null,
+        createdAt: '2026-09-28T00:00:00Z',
+        updatedAt: '2026-09-28T00:00:00Z',
+      },
+    ],
   };
 }
 
@@ -98,7 +142,16 @@ function doc(
   };
 }
 describe('InternshipDetailComponent', () => {
-  async function setup(role: 'HR' | 'SUPERVISOR', status: 'PLANNED' | 'ACTIVE' | 'COMPLETED') {
+  async function setup(
+    role: 'ADMIN' | 'SUPERVISOR',
+    status: 'PLANNED' | 'ACTIVE' | 'COMPLETED',
+    validation: InternshipBundle['validation'] = {
+      decision: null,
+      comment: null,
+      performedBy: null,
+      performedAt: null,
+    },
+  ) {
     const calls: { method: string; args: unknown[] }[] = [];
     let loads = 0;
     await TestBed.configureTestingModule({
@@ -117,7 +170,7 @@ describe('InternshipDetailComponent', () => {
           useValue: {
             loadBundle: () => {
               loads++;
-              return of(bundle(status));
+              return of(bundle(status, validation));
             },
             activate: () => {
               calls.push({ method: 'activate', args: [] });
@@ -163,7 +216,10 @@ describe('InternshipDetailComponent', () => {
         },
       ],
     }).compileComponents();
-    TestBed.inject(AuthService).signInDemo(role === 'HR' ? 'rh@steg.tn' : 'sup@steg.tn', role);
+    TestBed.inject(AuthService).signInDemo(
+      role === 'ADMIN' ? 'admin@steg.tn' : 'sup@steg.tn',
+      role,
+    );
     TestBed.inject(I18nService).setLocale('en');
     const fixture = TestBed.createComponent(InternshipDetailComponent);
     fixture.detectChanges();
@@ -172,7 +228,7 @@ describe('InternshipDetailComponent', () => {
   }
 
   it('shows backend classification read-only with the applied rule', async () => {
-    const { fixture } = await setup('HR', 'ACTIVE');
+    const { fixture } = await setup('ADMIN', 'ACTIVE');
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('PFE');
     expect(text).toContain('Duration > 3 months → PFE, mandatory.');
@@ -180,7 +236,7 @@ describe('InternshipDetailComponent', () => {
   });
 
   it('activates a PLANNED internship through confirm + server reload', async () => {
-    const { fixture, calls, loads } = await setup('HR', 'PLANNED');
+    const { fixture, calls, loads } = await setup('ADMIN', 'PLANNED');
     const component = fixture.componentInstance;
     component.confirmAction.set('activate');
     fixture.detectChanges();
@@ -196,20 +252,62 @@ describe('InternshipDetailComponent', () => {
     expect(text).not.toContain('Reassign');
   });
 
-  it('shows the certificate entry only for COMPLETED internships', async () => {
-    const active = await setup('HR', 'ACTIVE');
+  it('keeps tasks read-only for SUPERVISOR; ADMIN authors and advances', async () => {
+    const sup = await setup('SUPERVISOR', 'ACTIVE');
+    sup.fixture.componentInstance.tab.set('supervision');
+    sup.fixture.detectChanges();
+    const supText = sup.fixture.nativeElement.textContent as string;
+    expect(supText).toContain('Draft report');
+    expect(supText).toContain('read-only');
+    expect(supText).not.toContain('Mark done');
+    expect(supText).not.toContain('Start');
+
+    await TestBed.resetTestingModule();
+    const admin = await setup('ADMIN', 'ACTIVE');
+    admin.fixture.componentInstance.tab.set('supervision');
+    admin.fixture.detectChanges();
+    const adminText = admin.fixture.nativeElement.textContent as string;
+    expect(adminText).toContain('Mark done');
+  });
+
+  it('gates certificate generation on APPROVED validation (ADMIN only)', async () => {
+    const active = await setup('ADMIN', 'ACTIVE');
     expect(active.fixture.nativeElement.textContent as string).not.toContain(
       'Generate certificate',
     );
 
     await TestBed.resetTestingModule();
-    const { fixture } = await setup('SUPERVISOR', 'COMPLETED');
+    // COMPLETED but not validated → hint, no button.
+    const pending = await setup('ADMIN', 'COMPLETED');
+    const pendingText = pending.fixture.nativeElement.textContent as string;
+    expect(pendingText).not.toContain('Generate certificate');
+    expect(pendingText).toContain('requires an APPROVED administrative validation');
+
+    await TestBed.resetTestingModule();
+    // APPROVED → ADMIN may generate.
+    const approved = await setup('ADMIN', 'COMPLETED', {
+      decision: 'APPROVED',
+      comment: null,
+      performedBy: 'hr.steg',
+      performedAt: '2026-08-01T09:00:00Z',
+    });
+    expect(approved.fixture.nativeElement.textContent as string).toContain('Generate certificate');
+
+    await TestBed.resetTestingModule();
+    // SUPERVISOR never generates, even when validated.
+    const { fixture } = await setup('SUPERVISOR', 'COMPLETED', {
+      decision: 'APPROVED',
+      comment: null,
+      performedBy: 'hr.steg',
+      performedAt: '2026-08-01T09:00:00Z',
+    });
     const text = fixture.nativeElement.textContent as string;
-    expect(text).toContain('Generate certificate');
+    expect(text).not.toContain('Generate certificate');
+    expect(text).toContain('reserved for administrators');
   });
 
   it('validates dates locally and omits the observation flag for PFE', async () => {
-    const { fixture, calls } = await setup('HR', 'ACTIVE');
+    const { fixture, calls } = await setup('ADMIN', 'ACTIVE');
     const component = fixture.componentInstance;
     component.openDates();
     component.datesForm.startDate = '2026-09-01';
@@ -230,7 +328,7 @@ describe('InternshipDetailComponent', () => {
   });
 
   it('requires department + supervisor and states the one-active rule', async () => {
-    const { fixture, calls } = await setup('HR', 'ACTIVE');
+    const { fixture, calls } = await setup('ADMIN', 'ACTIVE');
     const component = fixture.componentInstance;
     component.tab.set('assignment');
     fixture.detectChanges();
@@ -315,8 +413,8 @@ describe('InternshipDetailComponent', () => {
         },
       ],
     }).compileComponents();
-    // HR lacks DOCUMENT_VIEW_RESTRICTED.
-    TestBed.inject(AuthService).signInDemo('rh@steg.tn', 'HR');
+    // SUPERVISOR lacks DOCUMENT_VIEW_RESTRICTED.
+    TestBed.inject(AuthService).signInDemo('sup@steg.tn', 'SUPERVISOR');
     TestBed.inject(I18nService).setLocale('en');
     const fixture = TestBed.createComponent(InternshipDetailComponent);
     fixture.detectChanges();
@@ -342,7 +440,7 @@ describe('InternshipDetailComponent', () => {
   });
 
   it('validates upload size locally and chains upload into attach', async () => {
-    const { fixture, calls } = await setup('HR', 'ACTIVE');
+    const { fixture, calls } = await setup('ADMIN', 'ACTIVE');
     const component = fixture.componentInstance;
     const big = new File([new ArrayBuffer(26 * 1024 * 1024)], 'big.pdf', {
       type: 'application/pdf',
@@ -365,7 +463,7 @@ describe('InternshipDetailComponent', () => {
   });
 
   it('prints the completion summary without touching PDF content', async () => {
-    const { fixture } = await setup('HR', 'COMPLETED');
+    const { fixture } = await setup('ADMIN', 'COMPLETED');
     const component = fixture.componentInstance;
     component.tab.set('documents');
     fixture.detectChanges();

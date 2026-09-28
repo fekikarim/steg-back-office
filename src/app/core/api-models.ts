@@ -23,6 +23,63 @@ export interface Page<T> {
   readonly size: number;
 }
 
+/**
+ * Normalizes a paginated backend response into the app's flat `Page<T>`.
+ *
+ * Spring Boot 4 returns the instance-model format
+ * `{ content, page: { number, size, totalElements, totalPages } }` while
+ * older endpoints/mocks still return the flat format (and some list
+ * endpoints return a bare array). Accepting all three here keeps every
+ * paginated view (finance, audit, notifications, companion lists, …)
+ * rendering correct counts instead of `NaN`.
+ */
+export function asPage<T>(
+  payload: Page<T> | { readonly page?: unknown; readonly content: readonly T[] } | readonly T[],
+): Page<T> {
+  if (Array.isArray(payload)) {
+    const rows = payload as readonly T[];
+    return {
+      content: rows,
+      totalElements: rows.length,
+      totalPages: 1,
+      number: 0,
+      size: rows.length,
+    };
+  }
+  const body = payload as { readonly content: readonly T[]; readonly page?: unknown };
+  const meta = body.page as
+    | {
+        readonly number?: number;
+        readonly size?: number;
+        readonly totalElements?: number;
+        readonly totalPages?: number;
+      }
+    | undefined;
+  if (meta && typeof meta === 'object') {
+    const content = body.content;
+    return {
+      content,
+      number: meta.number ?? 0,
+      size: meta.size ?? content.length,
+      totalElements: meta.totalElements ?? content.length,
+      totalPages:
+        meta.totalPages ??
+        (meta.size
+          ? Math.max(1, Math.ceil((meta.totalElements ?? content.length) / meta.size))
+          : 1),
+    };
+  }
+  const flat = body as unknown as Partial<Page<T>>;
+  const content = body.content;
+  return {
+    content,
+    number: flat.number ?? 0,
+    size: flat.size ?? content.length,
+    totalElements: flat.totalElements ?? content.length,
+    totalPages: flat.totalPages ?? 1,
+  };
+}
+
 export interface PageQuery {
   readonly page: number;
   readonly size: number;
@@ -663,4 +720,198 @@ export function toUserMessage(error: unknown): string {
   }
   if (error instanceof Error && error.message) return error.message;
   return 'Unexpected error';
+}
+
+/* ------------------------------------------------------------------ */
+/* Supervision workspace contracts (companion + evaluation).           */
+/* Mirrors steg-backend CompanionController/EvaluationController DTOs. */
+/* All progress/validation rules live backend-side; these are         */
+/* transport types only.                                               */
+/* ------------------------------------------------------------------ */
+
+/** Task attached to an internship (Flutter + back office share the model). */
+export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+
+export interface CompanionTask {
+  readonly id: string;
+  readonly internshipId: string;
+  readonly createdById: string | null;
+  readonly createdByEmail: string | null;
+  readonly assignedToId: string | null;
+  readonly assignedToEmail: string | null;
+  readonly title: string;
+  readonly description: string | null;
+  readonly status: TaskStatus;
+  readonly dueDate: string | null;
+  readonly completedAt: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface TaskRequest {
+  readonly title: string;
+  readonly description?: string;
+  readonly assignedToId?: string | null;
+  readonly dueDate?: string | null;
+  readonly status?: TaskStatus;
+}
+
+/** Daily journal entry submitted from the Flutter mobile app. */
+export type JournalEntryStatus = 'DRAFT' | 'SUBMITTED' | 'VALIDATED' | 'REJECTED';
+
+export interface JournalEntry {
+  readonly id: string;
+  readonly journalId: string | null;
+  readonly authorId: string | null;
+  readonly authorEmail: string | null;
+  readonly validatedById: string | null;
+  readonly validatedByName: string | null;
+  readonly title: string;
+  readonly description: string | null;
+  readonly status: JournalEntryStatus;
+  readonly entryDate: string;
+  readonly submittedAt: string | null;
+  readonly validatedAt: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface JournalValidationBody {
+  readonly comment?: string;
+}
+
+/** Internship report deliverable with append-only versions. */
+export type DeliverableStatus = 'DRAFT' | 'SUBMITTED' | 'VALIDATED' | 'REJECTED';
+
+export interface DeliverableItem {
+  readonly id: string;
+  readonly internshipId: string;
+  readonly validatedById: string | null;
+  readonly validatedByName: string | null;
+  readonly title: string;
+  readonly description: string | null;
+  readonly status: DeliverableStatus;
+  readonly currentVersion: number;
+  readonly submittedAt: string | null;
+  readonly validatedAt: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+/** Supervisor/intern evaluation (totalScore computed backend-side). */
+export type EvaluationType = 'DAILY' | 'WEEKLY' | 'MID_TERM' | 'FINAL' | 'CUSTOM';
+
+export interface EvaluationItem {
+  readonly id: string;
+  readonly internshipId: string;
+  readonly evaluatorId: string | null;
+  readonly evaluatorEmail: string | null;
+  readonly templateId: string | null;
+  readonly templateName: string | null;
+  readonly type: EvaluationType;
+  readonly evaluationDate: string;
+  readonly feedback: string | null;
+  readonly totalScore: number | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface EvaluationCreateBody {
+  readonly templateId?: string | null;
+  readonly type: EvaluationType;
+  readonly evaluationDate: string;
+  readonly feedback?: string;
+}
+
+export interface EvaluationScoreItem {
+  readonly id: string;
+  readonly evaluationId: string;
+  readonly criterionId: string | null;
+  readonly criterionName: string | null;
+  readonly score: number | null;
+  readonly maxScore: number | null;
+  readonly weight: number | null;
+  readonly comment: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface EvaluationCriterionItem {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string | null;
+  readonly maxScore: number;
+  readonly weight: number;
+}
+
+export interface EvaluationTemplateItem {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string | null;
+  readonly active: boolean;
+  readonly criteria: readonly EvaluationCriterionItem[];
+}
+
+/* ------------------------------------------------------------------ */
+/* Administrative validation decisions (recorded as VALIDATION         */
+/* workflow actions on COMPLETED internships — see WorkflowService).   */
+/* Validate→APPROVED, Reject→REJECTED, Corrections→NEEDS_CORRECTION,   */
+/* Hold→RETURNED. Every decision is audited backend-side.              */
+/* ------------------------------------------------------------------ */
+
+export type ValidationDecision = 'APPROVED' | 'REJECTED' | 'NEEDS_CORRECTION' | 'RETURNED';
+
+export const VALIDATION_DECISIONS: readonly ValidationDecision[] = [
+  'APPROVED',
+  'REJECTED',
+  'NEEDS_CORRECTION',
+  'RETURNED',
+];
+
+/** Latest administrative validation decision derived from workflow history. */
+export interface ValidationState {
+  readonly decision: ValidationDecision | null;
+  readonly comment: string | null;
+  readonly performedBy: string | null;
+  readonly performedAt: string | null;
+}
+
+/**
+ * Derives the current administrative validation state from an internship's
+ * ordered workflow actions. Only VALIDATION actions targeting the COMPLETED
+ * step count; the latest one wins. No such action means awaiting validation.
+ */
+export function deriveValidationState(actions: readonly WorkflowActionResponse[]): ValidationState {
+  let latest: WorkflowActionResponse | null = null;
+  for (const action of actions) {
+    if (action.type !== 'VALIDATION') continue;
+    if (action.stepCode !== 'COMPLETED') continue;
+    if (!action.decision || action.decision === 'PENDING') continue;
+    if (!latest || action.sequenceNumber > latest.sequenceNumber) latest = action;
+  }
+  if (!latest || !latest.decision) {
+    return { decision: null, comment: null, performedBy: null, performedAt: null };
+  }
+  return {
+    decision: latest.decision as ValidationDecision,
+    comment: latest.comment,
+    performedBy: latest.performedByUsername,
+    performedAt: latest.performedAt,
+  };
+}
+
+/** PUT /api/candidates/{id} body (staff profile correction). */
+export interface CandidateUpdateBody {
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly email: string;
+  readonly phone?: string | null;
+  readonly birthDate?: string | null;
+  readonly address?: string | null;
+  readonly speciality?: string | null;
+  readonly diploma?: string | null;
+  readonly skills?: string | null;
+  readonly languages?: string | null;
+  readonly universityId: string;
+  readonly nationalId: string;
 }

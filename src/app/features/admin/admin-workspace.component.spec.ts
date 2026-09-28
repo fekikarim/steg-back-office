@@ -203,7 +203,7 @@ describe('AdminWorkspaceComponent', () => {
         },
       ],
     }).compileComponents();
-    TestBed.inject(AuthService).signInDemo('dir@steg.tn', 'DIRECTOR');
+    TestBed.inject(AuthService).signInDemo('sup@steg.tn', 'SUPERVISOR');
     TestBed.inject(I18nService).setLocale('en');
     const fixture = TestBed.createComponent(AdminWorkspaceComponent);
     fixture.detectChanges();

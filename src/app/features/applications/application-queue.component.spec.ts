@@ -83,7 +83,7 @@ describe('ApplicationsComponent (queue)', () => {
         },
       ],
     }).compileComponents();
-    TestBed.inject(AuthService).signInDemo('rh@steg.tn', 'HR');
+    TestBed.inject(AuthService).signInDemo('admin@steg.tn', 'ADMIN');
     const fixture = TestBed.createComponent(ApplicationsComponent);
     fixture.detectChanges();
     await fixture.whenStable();

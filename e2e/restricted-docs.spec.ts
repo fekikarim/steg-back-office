@@ -7,20 +7,12 @@ test.describe('restricted documents', () => {
     await installMockApi(page, createMockState());
   });
 
-  test('HR sees the sensitive badge but cannot download the CIN', async ({ page }) => {
-    await loginAs(page, 'rh@steg.tn', 'HR');
-    await page.goto('/applications');
-    await page.getByRole('link', { name: 'APP-2026-000123' }).click();
-    await page.getByRole('tab', { name: 'Documents' }).click();
-    const cinRow = page.locator('.st-docrow', { hasText: 'cin.png' });
-    await expect(cinRow.getByText('Donnée sensible')).toBeVisible();
-    await expect(cinRow.getByRole('button', { name: /Télécharger/ })).toBeDisabled();
-    // …while the unrestricted CV downloads normally.
-    const cvRow = page.locator('.st-docrow', { hasText: 'cv.pdf' });
-    const downloadPromise = page.waitForEvent('download');
-    await cvRow.getByRole('button', { name: /Télécharger/ }).click();
-    const download = await downloadPromise;
-    expect(download.suggestedFilename()).toContain('cv.pdf');
+  test('SUPERVISOR cannot open application dossiers at all (no application access)', async ({
+    page,
+  }) => {
+    await loginAs(page, 'sup@steg.tn', 'SUPERVISOR');
+    await page.goto('/applications/app-1');
+    await expect(page).toHaveURL(/\/forbidden$/);
   });
 
   test('ADMIN downloads the restricted CIN through the guarded endpoint', async ({ page }) => {
@@ -42,7 +34,7 @@ test.describe('restricted documents', () => {
   test('finance dossier flags the CIN row for a reader without the permission', async ({
     page,
   }) => {
-    await loginAs(page, 'dir@steg.tn', 'DIRECTOR');
+    await loginAs(page, 'sup@steg.tn', 'SUPERVISOR');
     await page.goto('/finance/case-1');
     await page.getByRole('tab', { name: 'Pièces' }).click();
     const cinRow = page.locator('.st-docrow', { hasText: 'CIN_COPY' });

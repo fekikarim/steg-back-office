@@ -61,6 +61,7 @@ import type { NavSection } from '../core/roles';
         background: var(--bg-inverse);
         color: var(--text-inverse);
         inline-size: 16rem;
+        max-inline-size: calc(100vw - 3rem);
         transition: inline-size 0.18s ease;
         border-inline-end: 1px solid var(--border-strong);
       }

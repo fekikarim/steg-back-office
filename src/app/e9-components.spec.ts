@@ -22,7 +22,7 @@ import { PaginationComponent } from './shared/ui/pagination.component';
 import { DialogComponent } from './shared/ui/dialog.component';
 import { ToastService } from './shared/ui/toast.service';
 import { formatTND, formatDate, formatDateTime } from './core/format';
-import { permissionsFor } from './core/roles';
+import { permissionsFor, visibleNav } from './core/roles';
 
 @Component({ standalone: true, template: '' })
 class DummyComponent {}
@@ -79,12 +79,12 @@ describe('AuthService', () => {
 
   it('login stores session and marks authenticated', () => {
     let resolved = false;
-    service.login('hr@steg.com.tn', 'secret').subscribe(() => (resolved = true));
+    service.login('admin@steg.com.tn', 'secret').subscribe(() => (resolved = true));
 
     const req = http.expectOne('http://localhost:8080/api/auth/login');
     expect(req.request.method).toBe('POST');
     req.flush({
-      accessToken: makeJwt(['ROLE_HR']),
+      accessToken: makeJwt(['ROLE_ADMIN']),
       refreshToken: 'rt',
       expiresIn: 3600,
       tokenType: 'Bearer',
@@ -92,21 +92,42 @@ describe('AuthService', () => {
 
     expect(resolved).toBe(true);
     expect(service.isAuthenticated()).toBe(true);
-    expect(service.role()).toBe('HR');
+    expect(service.role()).toBe('ADMIN');
+  });
+
+  it('login denies removed roles even with a valid JWT (Back Office is ADMIN/SUPERVISOR only)', () => {
+    let failed = false;
+    service.login('hr@steg.com.tn', 'secret').subscribe({
+      next: () => undefined,
+      error: () => (failed = true),
+    });
+
+    const req = http.expectOne('http://localhost:8080/api/auth/login');
+    req.flush({
+      accessToken: makeJwt(['ROLE_HR']),
+      refreshToken: 'rt',
+      expiresIn: 3600,
+      tokenType: 'Bearer',
+    });
+
+    expect(failed).toBe(true);
+    expect(service.isAuthenticated()).toBe(false);
+    expect(service.role()).toBeNull();
   });
 
   it('signOut clears session state', () => {
-    service.signInDemo('hr@steg.com.tn', 'HR');
+    service.signInDemo('admin@steg.com.tn', 'ADMIN');
     expect(service.isAuthenticated()).toBe(true);
     service.signOut();
     expect(service.isAuthenticated()).toBe(false);
     expect(service.user()).toBeNull();
   });
 
-  it('HR has APPLICATION_REVIEW permission but not USER_MANAGE', () => {
-    const perms = permissionsFor('HR');
-    expect(perms).toContain('APPLICATION_REVIEW');
+  it('SUPERVISOR has scoped permissions but not admin ones', () => {
+    const perms = permissionsFor('SUPERVISOR');
+    expect(perms).toContain('FINANCE_CASE_VIEW');
     expect(perms).not.toContain('USER_MANAGE');
+    expect(perms).not.toContain('APPLICATION_REVIEW');
   });
 
   it('ADMIN has all permissions', () => {
@@ -116,10 +137,15 @@ describe('AuthService', () => {
     expect(perms).toContain('FINANCE_CASE_VIEW');
   });
 
-  it('FINANCE has FINANCE_CASE_VIEW but not APPLICATION_REVIEW', () => {
-    const perms = permissionsFor('FINANCE');
-    expect(perms).toContain('FINANCE_CASE_VIEW');
-    expect(perms).not.toContain('APPLICATION_REVIEW');
+  it('ADMIN sees validation + receipts; SUPERVISOR sees scoped subset (UX only)', () => {
+    const adminPaths = visibleNav('ADMIN').flatMap((s) => s.items.map((i) => i.path));
+    expect(adminPaths).toContain('/finance');
+    expect(adminPaths).toContain('/admin');
+    const supPaths = visibleNav('SUPERVISOR').flatMap((s) => s.items.map((i) => i.path));
+    expect(supPaths).toContain('/finance');
+    expect(supPaths).toContain('/supervisor');
+    expect(supPaths).not.toContain('/admin');
+    expect(supPaths).not.toContain('/candidates');
   });
 });
 

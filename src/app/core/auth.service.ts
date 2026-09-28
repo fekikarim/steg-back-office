@@ -5,7 +5,7 @@ import { Router } from '@angular/router';
 import { tap, catchError, of, Observable, throwError, shareReplay, finalize } from 'rxjs';
 import { environment } from '../../environments/environment';
 import type { StaffRole } from './roles';
-import { permissionsFor, type Permission } from './roles';
+import { permissionsFor, isBackOfficeRole, type Permission } from './roles';
 
 export interface SessionUser {
   readonly email: string;
@@ -71,6 +71,11 @@ export class AuthService {
         throw err;
       }),
     );
+  }
+
+  /** True when the session belongs to a Back Office role (ADMIN/SUPERVISOR). */
+  isBackOfficeSession(): boolean {
+    return isBackOfficeRole(this.role());
   }
 
   refresh(): Observable<AuthResponse> {
@@ -190,6 +195,17 @@ export class AuthService {
   }
 
   private handleAuthResponse(res: AuthResponse): void {
+    const decoded = this.decodeJwt(res.accessToken);
+    const role = this.extractStaffRole(decoded?.roles ?? []);
+    const email = decoded?.email ?? '';
+    const userId = decoded?.sub ?? '';
+    if (!role) {
+      // Valid credentials, wrong application: HR/FINANCE/DIRECTOR/CANDIDATE/
+      // INTERN (or unknown) roles have no Back Office access. Drop the tokens
+      // immediately and surface a 403-style denial to the login form.
+      this.clearSession();
+      throw { status: 403, error: { message: 'BACK_OFFICE_DENIED' } };
+    }
     this.setAccessToken(res.accessToken);
     if (isPlatformBrowser(this.platformId)) {
       try {
@@ -198,10 +214,6 @@ export class AuthService {
         /* ignore */
       }
     }
-    const decoded = this.decodeJwt(res.accessToken);
-    const role = this.extractStaffRole(decoded?.roles ?? []);
-    const email = decoded?.email ?? '';
-    const userId = decoded?.sub ?? '';
     const displayName =
       email
         .split('@')[0]
@@ -212,8 +224,8 @@ export class AuthService {
       const user: SessionUser = { email, displayName, role, userId };
       this._user.set(user);
       this.persistUser(user);
-      // Honor returnTo after login
-      let target = '/dashboard';
+      // Honor returnTo after login (guards re-check it); otherwise land by role.
+      let target = role === 'SUPERVISOR' ? '/supervisor-dashboard' : '/dashboard';
       if (isPlatformBrowser(this.platformId)) {
         try {
           const params = new URLSearchParams(window.location.search);
@@ -248,7 +260,15 @@ export class AuthService {
       const raw = localStorage.getItem(STORAGE_USER);
       if (!raw) return null;
       const parsed = JSON.parse(raw) as SessionUser;
-      if (typeof parsed.email === 'string' && typeof parsed.role === 'string') return parsed;
+      if (typeof parsed.email !== 'string' || typeof parsed.role !== 'string') return null;
+      // Drop sessions stored under removed roles (HR/FINANCE/DIRECTOR/CANDIDATE/INTERN).
+      if (!isBackOfficeRole(parsed.role)) {
+        localStorage.removeItem(STORAGE_USER);
+        localStorage.removeItem(STORAGE_ACCESS);
+        localStorage.removeItem(STORAGE_REFRESH);
+        return null;
+      }
+      return parsed;
     } catch {
       /* ignore */
     }
@@ -291,14 +311,11 @@ export class AuthService {
   }
 
   private extractStaffRole(roles: string[]): StaffRole | null {
-    const priority: StaffRole[] = ['ADMIN', 'FINANCE', 'SUPERVISOR', 'HR', 'DIRECTOR'];
-    for (const p of priority) {
+    // Back Office admits ADMIN and SUPERVISOR only. All other backend roles
+    // (HR/FINANCE/DIRECTOR/CANDIDATE/INTERN or unknown) resolve to null and
+    // are denied at login — never admitted to a session.
+    for (const p of ['ADMIN', 'SUPERVISOR'] as const) {
       if (roles.includes(`ROLE_${p}`) || roles.includes(p)) return p;
-    }
-    // Fallback: first matching ALL_ROLES
-    for (const r of roles) {
-      const clean = r.replace(/^ROLE_/, '') as StaffRole;
-      if (['HR', 'SUPERVISOR', 'FINANCE', 'DIRECTOR', 'ADMIN'].includes(clean)) return clean;
     }
     return null;
   }

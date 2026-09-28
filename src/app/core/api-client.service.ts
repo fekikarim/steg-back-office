@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams, HttpContext } from '@angular/common/http';
-import { Observable, catchError, throwError } from 'rxjs';
+import { Observable, catchError, map, throwError } from 'rxjs';
+import { asPage } from './api-models';
 import { environment } from '../../environments/environment';
 import { SKIP_GLOBAL_ERROR } from './error.interceptor';
 import type {
@@ -26,6 +27,7 @@ import type {
   DocumentVerificationBody,
   CandidateSummary,
   CandidateDetail,
+  CandidateUpdateBody,
   University,
   ManualApplicationFields,
   ManualApplicationResult,
@@ -47,6 +49,16 @@ import type {
   EmployeeRequest,
   AuditLogEntry,
   AuditQuery,
+  CompanionTask,
+  TaskRequest,
+  TaskStatus,
+  JournalEntry,
+  JournalValidationBody,
+  DeliverableItem,
+  EvaluationItem,
+  EvaluationCreateBody,
+  EvaluationScoreItem,
+  EvaluationTemplateItem,
 } from './api-models';
 
 /**
@@ -80,11 +92,14 @@ export class ApiClient {
 
   getApplications(query: PageQuery): Observable<Page<ApplicationRow>> {
     return this.http
-      .get<Page<ApplicationRow>>(`${this.baseUrl}/api/applications`, {
+      .get<unknown>(`${this.baseUrl}/api/applications`, {
         params: this.params(query),
         context: this.silentContext(),
       })
-      .pipe(catchError((e) => throwError(() => e)));
+      .pipe(
+        map((raw) => asPage<ApplicationRow>(raw as never)),
+        catchError((e) => throwError(() => e)),
+      );
   }
 
   // -- Phase A13 reporting endpoints (aggregate counts, not raw dumps) --
@@ -153,27 +168,30 @@ export class ApiClient {
     status: FinanceCaseStatus,
     page = 0,
     size = 5,
-  ): Observable<FinanceCaseQueueItem[] | Page<FinanceCaseQueueItem>> {
+  ): Observable<Page<FinanceCaseQueueItem>> {
     const params = this.pageable(page, size, 'openedAt,desc').set('status', status);
     return this.http
-      .get<FinanceCaseQueueItem[] | Page<FinanceCaseQueueItem>>(
-        `${this.baseUrl}/api/finance-cases`,
-        {
-          params,
-          context: this.silentContext(),
-        },
-      )
-      .pipe(catchError((e) => throwError(() => e)));
+      .get<unknown>(`${this.baseUrl}/api/finance-cases`, {
+        params,
+        context: this.silentContext(),
+      })
+      .pipe(
+        map((raw) => asPage<FinanceCaseQueueItem>(raw as never)),
+        catchError((e) => throwError(() => e)),
+      );
   }
 
   getNotifications(unreadOnly: boolean, page = 0, size = 8): Observable<Page<NotificationItem>> {
     const params = this.pageable(page, size, 'createdAt,desc').set('unreadOnly', unreadOnly);
     return this.http
-      .get<Page<NotificationItem>>(`${this.baseUrl}/api/notifications`, {
+      .get<unknown>(`${this.baseUrl}/api/notifications`, {
         params,
         context: this.silentContext(),
       })
-      .pipe(catchError((e) => throwError(() => e)));
+      .pipe(
+        map((raw) => asPage<NotificationItem>(raw as never)),
+        catchError((e) => throwError(() => e)),
+      );
   }
 
   /** Unread count for the topbar bell (own deliveries only, backend-scoped). */
@@ -528,9 +546,10 @@ export class ApiClient {
   ): Observable<Page<FinanceCaseQueueItem>> {
     let params = this.pageable(page, size, sort);
     if (status) params = params.set('status', status);
-    return this.http
-      .get<Page<FinanceCaseQueueItem>>(`${this.baseUrl}/api/finance-cases`, { params })
-      .pipe(catchError((e) => throwError(() => e)));
+    return this.http.get<unknown>(`${this.baseUrl}/api/finance-cases`, { params }).pipe(
+      map((raw) => asPage<FinanceCaseQueueItem>(raw as never)),
+      catchError((e) => throwError(() => e)),
+    );
   }
 
   /** Full case with calculation, dossier and approval history (FINANCE/ADMIN). */
@@ -617,6 +636,19 @@ export class ApiClient {
       .pipe(catchError((e) => throwError(() => e)));
   }
 
+  /**
+   * Role-scoped virtual assistant (ADMIN/HR/DIRECTOR/FINANCE → staff
+   * aggregates; SUPERVISOR → assigned interns; others → own context).
+   * Advisory only; the backend degrades gracefully when Gemini is down.
+   */
+  queryAssistant(question: string): Observable<AiAnalysisResult> {
+    return this.http
+      .post<AiAnalysisResult>(`${this.baseUrl}/api/ai/assistant/query`, {
+        question: question.trim(),
+      })
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
   /* -------- Phase C6 — administration workspace -------- */
 
   /** Departments (mutations: ADMIN only, enforced backend-side). */
@@ -666,16 +698,175 @@ export class ApiClient {
     if (query.entityId?.trim()) params = params.set('entityId', query.entityId.trim());
     if (query.actorId?.trim()) params = params.set('actorId', query.actorId.trim());
     return this.http
-      .get<Page<AuditLogEntry>>(`${this.baseUrl}/api/audit`, {
+      .get<unknown>(`${this.baseUrl}/api/audit`, {
         params,
         context: this.silentContext(),
       })
-      .pipe(catchError((e) => throwError(() => e)));
+      .pipe(
+        map((raw) => asPage<AuditLogEntry>(raw as never)),
+        catchError((e) => throwError(() => e)),
+      );
   }
 
   getAuditEntry(id: string): Observable<AuditLogEntry> {
     return this.http
       .get<AuditLogEntry>(`${this.baseUrl}/api/audit/${id}`, {
+        context: this.silentContext(),
+      })
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /* -------- Supervision workspace (companion + evaluation) -------- */
+  /* Backend enforces participant/supervisor scoping; the client never  */
+  /* filters by identity — 403 surfaces as an actionable error.        */
+
+  /** Staff profile correction (ADMIN/HR; backend validates + audits). */
+  updateCandidate(id: string, body: CandidateUpdateBody): Observable<CandidateDetail> {
+    return this.http
+      .put<CandidateDetail>(`${this.baseUrl}/api/candidates/${id}`, body)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Tasks of an internship (ADMIN/HR/participant). Paged backend-side. */
+  listTasks(internshipId: string, page = 0, size = 50): Observable<Page<CompanionTask>> {
+    return this.http
+      .get<unknown>(`${this.baseUrl}/api/internships/${internshipId}/tasks`, {
+        params: this.pageable(page, size),
+        context: this.silentContext(),
+      })
+      .pipe(
+        map((raw) => asPage<CompanionTask>(raw as never)),
+        catchError((e) => throwError(() => e)),
+      );
+  }
+
+  /** Create a task on an internship (ADMIN/HR/supervisor participant). */
+  createTask(internshipId: string, body: TaskRequest): Observable<CompanionTask> {
+    return this.http
+      .post<CompanionTask>(`${this.baseUrl}/api/internships/${internshipId}/tasks`, body)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Move a task to a new status (ADMIN/HR/participant). */
+  updateTaskStatus(taskId: string, status: TaskStatus): Observable<CompanionTask> {
+    return this.http
+      .patch<CompanionTask>(`${this.baseUrl}/api/internships/tasks/${taskId}/status`, null, {
+        params: new HttpParams().set('status', status),
+      })
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Journal entries submitted from the Flutter app (ADMIN/HR/participant). */
+  listJournalEntries(internshipId: string, page = 0, size = 50): Observable<Page<JournalEntry>> {
+    return this.http
+      .get<unknown>(`${this.baseUrl}/api/internships/${internshipId}/journal/entries`, {
+        params: this.pageable(page, size, 'entryDate,desc'),
+        context: this.silentContext(),
+      })
+      .pipe(
+        map((raw) => asPage<JournalEntry>(raw as never)),
+        catchError((e) => throwError(() => e)),
+      );
+  }
+
+  /** Supervisor journal review (ADMIN/HR/supervisor; comment optional). */
+  validateJournalEntry(entryId: string, comment?: string): Observable<JournalEntry> {
+    const body: JournalValidationBody = comment?.trim() ? { comment: comment.trim() } : {};
+    return this.http
+      .post<JournalEntry>(
+        `${this.baseUrl}/api/internships/journal/entries/${entryId}/validate`,
+        body,
+      )
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Reject a journal entry (ADMIN/HR/supervisor; reason mandatory UX-side). */
+  rejectJournalEntry(entryId: string, comment: string): Observable<JournalEntry> {
+    return this.http
+      .post<JournalEntry>(`${this.baseUrl}/api/internships/journal/entries/${entryId}/reject`, {
+        comment: comment.trim(),
+      })
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Report deliverables of an internship (ADMIN/HR/participant). */
+  listDeliverables(internshipId: string, page = 0, size = 20): Observable<Page<DeliverableItem>> {
+    return this.http
+      .get<unknown>(`${this.baseUrl}/api/internships/${internshipId}/deliverables`, {
+        params: this.pageable(page, size),
+        context: this.silentContext(),
+      })
+      .pipe(
+        map((raw) => asPage<DeliverableItem>(raw as never)),
+        catchError((e) => throwError(() => e)),
+      );
+  }
+
+  /** Validate a deliverable (ADMIN/HR/supervisor). */
+  validateDeliverable(deliverableId: string, comment?: string): Observable<DeliverableItem> {
+    const body: JournalValidationBody = comment?.trim() ? { comment: comment.trim() } : {};
+    return this.http
+      .post<DeliverableItem>(
+        `${this.baseUrl}/api/internships/deliverables/${deliverableId}/validate`,
+        body,
+      )
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Reject a deliverable (ADMIN/HR/supervisor; reason mandatory UX-side). */
+  rejectDeliverable(deliverableId: string, comment: string): Observable<DeliverableItem> {
+    return this.http
+      .post<DeliverableItem>(
+        `${this.baseUrl}/api/internships/deliverables/${deliverableId}/reject`,
+        {
+          comment: comment.trim(),
+        },
+      )
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Authenticated deliverable file download (blob keeps the JWT header). */
+  downloadDeliverable(deliverableId: string): Observable<Blob> {
+    return this.http
+      .get(`${this.baseUrl}/api/internships/deliverables/${deliverableId}/download`, {
+        responseType: 'blob',
+      })
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Evaluations of an internship (ADMIN/HR/participant). */
+  listEvaluations(internshipId: string, page = 0, size = 20): Observable<Page<EvaluationItem>> {
+    return this.http
+      .get<unknown>(`${this.baseUrl}/api/internships/${internshipId}/evaluations`, {
+        params: this.pageable(page, size),
+        context: this.silentContext(),
+      })
+      .pipe(
+        map((raw) => asPage<EvaluationItem>(raw as never)),
+        catchError((e) => throwError(() => e)),
+      );
+  }
+
+  /** Submit an evaluation (ADMIN/HR/supervisor; totalScore computed server-side). */
+  createEvaluation(internshipId: string, body: EvaluationCreateBody): Observable<EvaluationItem> {
+    return this.http
+      .post<EvaluationItem>(`${this.baseUrl}/api/internships/${internshipId}/evaluations`, body)
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Scores of one evaluation (ADMIN/HR/participant). */
+  listEvaluationScores(evaluationId: string): Observable<EvaluationScoreItem[]> {
+    return this.http
+      .get<EvaluationScoreItem[]>(`${this.baseUrl}/api/evaluations/${evaluationId}/scores`, {
+        context: this.silentContext(),
+      })
+      .pipe(catchError((e) => throwError(() => e)));
+  }
+
+  /** Evaluation templates with criteria (ADMIN/HR/supervisor). */
+  listEvaluationTemplates(): Observable<EvaluationTemplateItem[]> {
+    return this.http
+      .get<EvaluationTemplateItem[]>(`${this.baseUrl}/api/evaluation-templates`, {
         context: this.silentContext(),
       })
       .pipe(catchError((e) => throwError(() => e)));

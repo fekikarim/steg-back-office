@@ -66,10 +66,10 @@ export class DashboardService {
   private readonly api = inject(ApiClient);
 
   load(role: StaffRole): Observable<DashboardSnapshot> {
-    const wantAppReports =
-      role === 'HR' || role === 'DIRECTOR' || role === 'ADMIN' || role === 'SUPERVISOR';
-    const wantFinanceReports = role === 'FINANCE' || role === 'DIRECTOR' || role === 'ADMIN';
-    const wantOverviewReports = role === 'DIRECTOR' || role === 'ADMIN';
+    // Back Office reports are an ADMIN surface (backend reports are ADMIN-only).
+    const wantAppReports = role === 'ADMIN';
+    const wantFinanceReports = role === 'ADMIN';
+    const wantOverviewReports = role === 'ADMIN';
 
     return forkJoin({
       applicationsByStatus: wantAppReports
@@ -187,7 +187,6 @@ function normalizeQueue(
   if (isQueueArray(payload)) return payload;
   return (payload.content ?? []) as readonly FinanceCaseQueueItem[];
 }
-
 function isQueueArray(
   value: readonly FinanceCaseQueueItem[] | Page<FinanceCaseQueueItem>,
 ): value is readonly FinanceCaseQueueItem[] {
