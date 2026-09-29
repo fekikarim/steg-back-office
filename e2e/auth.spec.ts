@@ -38,8 +38,8 @@ test.describe('auth & role isolation', () => {
     await loginAs(page, 'sup@steg.tn', 'SUPERVISOR');
     const nav = page.getByRole('navigation', { name: /principal|primary/i });
     // No ADMIN dashboard entry; the supervisor home dashboard is present instead.
-    await expect(nav.getByRole('link', { href: '/dashboard' })).toHaveCount(0);
-    await expect(nav.getByRole('link', { href: '/supervisor-dashboard' })).toHaveCount(1);
+    await expect(nav.locator('a[href="/dashboard"]')).toHaveCount(0);
+    await expect(nav.locator('a[href="/supervisor-dashboard"]')).toHaveCount(1);
     await page.goto('/dashboard');
     await expect(page).toHaveURL(/\/supervisor-dashboard$/);
   });

@@ -18,11 +18,27 @@ import type { NavSection } from '../core/roles';
   template: `
     <nav class="st-side" [class.st-side--collapsed]="collapsed" aria-label="Primary">
       <div class="st-side__brand">
-        <img src="logo/logo-steg-1200x327.png" alt="STEG" class="st-side__logo" />
-        @if (!collapsed) {
-          <div class="st-side__brand-text">
-            <strong class="st-side__name">{{ i18n.t('app.name') }}</strong>
-            <span class="st-side__tag">{{ i18n.t('app.tagline') }}</span>
+        @if (collapsed) {
+          <span class="st-side__tile">
+            <img
+              class="st-side__mark"
+              src="logo/android-chrome-192x192.png"
+              srcset="logo/android-chrome-192x192.png 192w, logo/android-chrome-512x512.png 512w"
+              sizes="42px"
+              width="192"
+              height="192"
+              alt="STEG"
+            />
+          </span>
+        } @else {
+          <div class="st-side__card">
+            <img
+              class="st-side__logo"
+              src="logo/logo-steg-1200x327.png"
+              width="1200"
+              height="327"
+              alt="STEG"
+            />
           </div>
         }
       </div>
@@ -73,38 +89,66 @@ import type { NavSection } from '../core/roles';
       .st-side--collapsed {
         inline-size: 4.5rem;
       }
-      .st-side--collapsed .st-side__section,
-      .st-side--collapsed .st-side__brand-text {
+      .st-side--collapsed .st-side__section {
         display: none;
       }
       .st-side__brand {
         display: flex;
         align-items: center;
-        gap: 0.65rem;
-        padding: 1rem 0.95rem 0.9rem;
+        justify-content: center;
+        min-block-size: 6rem;
+        padding: 0.5rem 0.95rem;
+        overflow: hidden;
         border-block-end: 1px solid rgb(255 255 255 / 0.1);
       }
-      .st-side__logo {
-        inline-size: 2.35rem;
-        block-size: auto;
-        object-fit: contain;
+      .st-side--collapsed .st-side__brand {
+        padding-inline: 0.5rem;
+      }
+      .st-side__tile,
+      .st-side__card {
         background: #fff;
-        border-radius: 0.45rem;
-        padding: 0.12rem 0.2rem;
+        box-shadow: 0 2px 10px rgb(2 12 24 / 0.32);
+        animation: st-brand-in 0.18s ease both;
+      }
+      .st-side__tile {
         flex: none;
-        box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+        display: grid;
+        place-items: center;
+        inline-size: 1.75rem;
+        block-size: 2.6rem;
+        padding: 0.18rem 0.12rem;
+        border-radius: 0.45rem;
       }
-      .st-side__name {
+      .st-side__mark {
         display: block;
-        font-size: 0.84rem;
-        font-weight: 700;
-        letter-spacing: 0.01em;
+        inline-size: 100%;
+        block-size: 100%;
+        object-fit: cover;
       }
-      .st-side__tag {
+      .st-side__card {
+        inline-size: fit-content;
+        max-inline-size: 100%;
+        display: grid;
+        place-items: center;
+        padding: 0.55rem 0.8rem;
+        border-radius: 0.6rem;
+      }
+      .st-side__logo {
         display: block;
-        font-size: 0.66rem;
-        opacity: 0.72;
-        margin-block-start: 0.1rem;
+        inline-size: min(12.25rem, 100%);
+        block-size: auto;
+        aspect-ratio: 1200 / 327;
+        object-fit: contain;
+      }
+      @keyframes st-brand-in {
+        from {
+          opacity: 0;
+          transform: scale(0.97);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
       }
       .st-side__nav {
         flex: 1;

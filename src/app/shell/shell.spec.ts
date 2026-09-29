@@ -72,6 +72,23 @@ describe('ShellComponent', () => {
     expect(fixture.nativeElement.querySelector('.st-side--collapsed')).toBeTruthy();
   });
 
+  it('brand shows the wide STEG lockup and swaps to the square mark when collapsed', () => {
+    const auth = TestBed.inject(AuthService);
+    auth.signInDemo('admin@steg.tn', 'ADMIN');
+    const fixture = TestBed.createComponent(ShellComponent);
+    fixture.detectChanges();
+    const logo = fixture.nativeElement.querySelector('.st-side__logo') as HTMLImageElement | null;
+    expect(logo?.getAttribute('src')).toBe('logo/logo-steg-1200x327.png');
+    expect(fixture.nativeElement.querySelector('.st-side__mark')).toBeNull();
+
+    fixture.componentInstance.collapsed.set(true);
+    fixture.detectChanges();
+    const mark = fixture.nativeElement.querySelector('.st-side__mark') as HTMLImageElement | null;
+    expect(mark?.getAttribute('src')).toBe('logo/android-chrome-192x192.png');
+    expect(mark?.getAttribute('srcset')).toContain('logo/android-chrome-512x512.png');
+    expect(fixture.nativeElement.querySelector('.st-side__logo')).toBeNull();
+  });
+
   it('a11y: nav has accessible label, buttons have labels', () => {
     const auth = TestBed.inject(AuthService);
     auth.signInDemo('admin@steg.tn', 'ADMIN');

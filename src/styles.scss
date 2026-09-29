@@ -140,14 +140,7 @@ html {
 
 body {
   margin: 0;
-  font-family:
-    'Segoe UI',
-    'Noto Sans',
-    'Noto Sans Arabic',
-    system-ui,
-    Tahoma,
-    Arial,
-    sans-serif;
+  font-family: 'Segoe UI', 'Noto Sans', 'Noto Sans Arabic', system-ui, Tahoma, Arial, sans-serif;
   background: var(--bg-page);
   color: var(--text-primary);
   font-size: 14px;
@@ -459,8 +452,8 @@ select.st-input {
 }
 .st-card--calc {
   border-color: color-mix(in srgb, var(--action-primary) 35%, transparent);
-  background: linear-gradient(0deg, var(--brand-primary-soft), var(--brand-primary-soft)),
-    var(--bg-surface);
+  background:
+    linear-gradient(0deg, var(--brand-primary-soft), var(--brand-primary-soft)), var(--bg-surface);
 }
 .st-card__head {
   display: flex;
