@@ -81,14 +81,15 @@ import { visibleNav } from '../core/roles';
       }
       .st-shell__inner {
         inline-size: 100%;
-        max-inline-size: 80rem;
+        max-inline-size: 84rem;
         margin-inline: auto;
-        padding: 1rem 1.25rem 3rem;
+        padding: 1.1rem 1.5rem 3rem;
       }
       .st-shell__scrim {
         position: fixed;
         inset: 0;
-        background: rgb(2 12 24 / 0.45);
+        background: rgb(2 12 24 / 0.5);
+        backdrop-filter: blur(2px);
         z-index: 65;
       }
       @media (max-width: 1023px) {

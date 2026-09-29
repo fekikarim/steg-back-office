@@ -4,7 +4,13 @@ import { I18nService } from '../core/i18n.service';
 import { StIconComponent } from '../shared/ui/icon.component';
 import type { NavSection } from '../core/roles';
 
-/** Collapsible sidebar; logical properties keep placement correct in RTL. */
+/**
+ * Primary navigation rail — the identity surface of the Back Office.
+ * Deep institutional navy (STEG brand) with an azure active indicator,
+ * generous nav rows, refined section headings. Mirrors the premium
+ * enterprise dashboard pattern (Meta-style) while remaining STEG.
+ * Logical properties keep placement correct in RTL.
+ */
 @Component({
   selector: 'st-sidebar',
   standalone: true,
@@ -58,15 +64,14 @@ import type { NavSection } from '../core/roles';
         display: flex;
         flex-direction: column;
         block-size: 100%;
-        background: var(--bg-inverse);
+        background: linear-gradient(180deg, var(--brand-navy) 0%, var(--brand-navy-deep) 100%);
         color: var(--text-inverse);
-        inline-size: 16rem;
+        inline-size: 16.5rem;
         max-inline-size: calc(100vw - 3rem);
         transition: inline-size 0.18s ease;
-        border-inline-end: 1px solid var(--border-strong);
       }
       .st-side--collapsed {
-        inline-size: 4.25rem;
+        inline-size: 4.5rem;
       }
       .st-side--collapsed .st-side__section,
       .st-side--collapsed .st-side__brand-text {
@@ -75,80 +80,108 @@ import type { NavSection } from '../core/roles';
       .st-side__brand {
         display: flex;
         align-items: center;
-        gap: 0.6rem;
-        padding: 0.9rem;
-        border-block-end: 1px solid rgb(255 255 255 / 0.12);
+        gap: 0.65rem;
+        padding: 1rem 0.95rem 0.9rem;
+        border-block-end: 1px solid rgb(255 255 255 / 0.1);
       }
       .st-side__logo {
-        inline-size: 2.1rem;
-        block-size: 2.1rem;
+        inline-size: 2.35rem;
+        block-size: auto;
         object-fit: contain;
         background: #fff;
         border-radius: 0.45rem;
-        padding: 0.15rem;
+        padding: 0.12rem 0.2rem;
         flex: none;
+        box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
       }
       .st-side__name {
         display: block;
-        font-size: 0.82rem;
+        font-size: 0.84rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
       }
       .st-side__tag {
         display: block;
-        font-size: 0.68rem;
-        opacity: 0.75;
+        font-size: 0.66rem;
+        opacity: 0.72;
+        margin-block-start: 0.1rem;
       }
       .st-side__nav {
         flex: 1;
         overflow-y: auto;
-        padding: 0.6rem;
+        overflow-x: hidden;
+        padding: 0.75rem 0.6rem 0.5rem;
         display: grid;
-        gap: 0.35rem;
+        gap: 0.2rem;
         align-content: start;
       }
       .st-side__section {
-        margin: 0.5rem 0.3rem 0.15rem;
-        font-size: 0.66rem;
+        margin: 0.85rem 0.55rem 0.3rem;
+        font-size: 0.64rem;
+        font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
-        opacity: 0.65;
+        letter-spacing: 0.09em;
+        color: rgb(255 255 255 / 0.45);
       }
       .st-side__list {
         list-style: none;
         margin: 0;
         padding: 0;
         display: grid;
-        gap: 0.15rem;
+        gap: 0.1rem;
       }
       .st-side__link {
+        position: relative;
         display: flex;
         align-items: center;
-        gap: 0.6rem;
-        padding: 0.55rem 0.65rem;
-        border-radius: 0.5rem;
-        color: inherit;
+        gap: 0.7rem;
+        padding: 0.55rem 0.7rem;
+        border-radius: var(--radius-sm);
+        color: rgb(255 255 255 / 0.82);
         text-decoration: none;
         font-size: 0.85rem;
-        min-block-size: 2.75rem;
+        min-block-size: 2.4rem;
+        transition:
+          background-color 0.15s ease,
+          color 0.15s ease;
       }
       .st-side__link:hover {
         background: rgb(255 255 255 / 0.08);
+        color: #fff;
       }
       .st-side__link--active {
-        background: rgb(255 255 255 / 0.14);
+        background: rgb(255 255 255 / 0.13);
+        color: #fff;
         font-weight: 600;
+      }
+      .st-side__link--active::before {
+        content: '';
+        position: absolute;
+        inset-inline-start: -0.6rem;
+        inset-block: 0.35rem;
+        inline-size: 3px;
+        border-radius: 999px;
+        background: #fff;
       }
       .st-side__link:focus-visible {
         outline: 2px solid #fff;
-        outline-offset: 2px;
+        outline-offset: -2px;
       }
       .st-side--collapsed .st-side__link {
         justify-content: center;
+        padding-inline: 0;
       }
       .st-side__collapse {
-        margin: 0.6rem;
+        margin: 0.6rem 0.75rem 0.75rem;
         align-self: flex-end;
-        color: inherit;
-        border-color: rgb(255 255 255 / 0.25);
+        background: rgb(255 255 255 / 0.06);
+        border-color: rgb(255 255 255 / 0.2);
+        color: rgb(255 255 255 / 0.85);
+      }
+      .st-side__collapse:hover {
+        background: rgb(255 255 255 / 0.14);
+        border-color: rgb(255 255 255 / 0.35);
+        color: #fff;
       }
     `,
   ],

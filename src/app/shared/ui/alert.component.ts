@@ -27,22 +27,30 @@ import { StIconComponent } from './icon.component';
         gap: 0.6rem;
         align-items: flex-start;
         padding: 0.7rem 0.85rem;
-        border-radius: 0.6rem;
+        border-radius: var(--radius);
         border: 1px solid var(--border-default);
         background: var(--bg-surface);
         font-size: 0.85rem;
       }
+      .st-alert st-icon {
+        margin-block-start: 0.1rem;
+        flex: none;
+      }
       .st-alert--info {
         border-inline-start: 3px solid var(--status-info);
+        background: color-mix(in srgb, var(--status-info) 5%, var(--bg-surface));
       }
       .st-alert--success {
         border-inline-start: 3px solid var(--status-success);
+        background: color-mix(in srgb, var(--status-success) 5%, var(--bg-surface));
       }
       .st-alert--warning {
         border-inline-start: 3px solid var(--status-warning);
+        background: color-mix(in srgb, var(--status-warning) 5%, var(--bg-surface));
       }
       .st-alert--error {
         border-inline-start: 3px solid var(--status-error);
+        background: color-mix(in srgb, var(--status-error) 5%, var(--bg-surface));
       }
       .st-alert__title {
         display: block;

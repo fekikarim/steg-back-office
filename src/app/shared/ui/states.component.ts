@@ -21,21 +21,27 @@ import { StIconComponent } from './icon.component';
     `
       .st-state {
         text-align: center;
-        padding: 2.5rem 1rem;
-        color: var(--text-secondary);
+        padding: 3rem 1rem;
+        color: var(--text-muted);
         display: grid;
-        gap: 0.5rem;
+        gap: 0.55rem;
         justify-items: center;
+      }
+      .st-state st-icon {
+        opacity: 0.45;
+        color: var(--text-secondary);
       }
       .st-state__title {
         margin: 0;
         font-size: 1rem;
+        font-weight: 650;
         color: var(--text-primary);
       }
       .st-state__body {
         margin: 0;
         font-size: 0.85rem;
         max-inline-size: 32rem;
+        color: var(--text-secondary);
       }
     `,
   ],
@@ -65,21 +71,27 @@ export class EmptyStateComponent {
     `
       .st-state {
         text-align: center;
-        padding: 2.5rem 1rem;
-        color: var(--text-secondary);
+        padding: 3rem 1rem;
+        color: var(--text-muted);
         display: grid;
-        gap: 0.5rem;
+        gap: 0.55rem;
         justify-items: center;
+      }
+      .st-state st-icon {
+        opacity: 0.45;
+        color: var(--text-secondary);
       }
       .st-state__title {
         margin: 0;
         font-size: 1rem;
+        font-weight: 650;
         color: var(--text-primary);
       }
       .st-state__body {
         margin: 0;
         font-size: 0.85rem;
         max-inline-size: 32rem;
+        color: var(--text-secondary);
       }
     `,
   ],

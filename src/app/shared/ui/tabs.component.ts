@@ -34,24 +34,30 @@ export interface TabItem {
     `
       .st-tabs {
         display: flex;
-        gap: 0.25rem;
+        gap: 0.15rem;
         border-block-end: 1px solid var(--border-subtle);
         overflow-x: auto;
       }
       .st-tab {
         border: 0;
         background: none;
-        padding: 0.6rem 0.8rem;
-        font-size: 0.85rem;
+        padding: 0.65rem 0.85rem;
+        font-size: 0.84rem;
         font-weight: 600;
         color: var(--text-secondary);
         cursor: pointer;
         border-block-end: 2px solid transparent;
         margin-block-end: -1px;
         display: inline-flex;
-        gap: 0.4rem;
+        gap: 0.45rem;
         align-items: center;
         white-space: nowrap;
+        transition:
+          color 0.15s ease,
+          border-color 0.15s ease;
+      }
+      .st-tab:hover {
+        color: var(--text-primary);
       }
       .st-tab--active {
         color: var(--action-primary);
@@ -59,14 +65,20 @@ export interface TabItem {
       }
       .st-tab:focus-visible {
         outline: 2px solid var(--action-primary);
-        outline-offset: 2px;
-        border-radius: 0.3rem;
+        outline-offset: -2px;
+        border-radius: 0.4rem;
       }
       .st-tab__count {
-        font-size: 0.72rem;
+        font-size: 0.7rem;
+        font-weight: 600;
         background: var(--border-subtle);
+        color: var(--text-secondary);
         border-radius: 999px;
-        padding: 0.1rem 0.45rem;
+        padding: 0.08rem 0.45rem;
+      }
+      .st-tab--active .st-tab__count {
+        background: var(--brand-primary-soft);
+        color: var(--brand-primary-strong);
       }
     `,
   ],

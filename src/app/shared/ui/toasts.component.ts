@@ -43,13 +43,24 @@ import { StIconComponent } from './icon.component';
         display: flex;
         align-items: center;
         gap: 0.5rem;
-        padding: 0.65rem 0.8rem;
-        border-radius: 0.6rem;
+        padding: 0.7rem 0.8rem;
+        border-radius: var(--radius);
         border: 1px solid var(--border-default);
         background: var(--bg-elevated);
         color: var(--text-primary);
-        box-shadow: var(--shadow-md);
+        box-shadow: var(--shadow-lg);
         font-size: 0.85rem;
+        animation: st-toast-in 0.18s ease-out;
+      }
+      @keyframes st-toast-in {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
       }
       .st-toast--success {
         border-inline-start: 3px solid var(--status-success);
@@ -78,6 +89,9 @@ import { StIconComponent } from './icon.component';
         min-inline-size: 2rem;
         align-items: center;
         justify-content: center;
+      }
+      .st-toast__close:hover {
+        background: var(--bg-subtle);
       }
       .st-toast__close:focus-visible {
         outline: 2px solid var(--action-primary);

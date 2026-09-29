@@ -128,9 +128,10 @@ import type { SupportedLocale } from '../core/dictionaries';
         gap: 0.6rem;
         row-gap: 0.4rem;
         flex-wrap: wrap;
-        padding: 0.55rem 1rem;
+        padding: 0.55rem 1.1rem;
         background: var(--bg-surface);
         border-block-end: 1px solid var(--border-subtle);
+        box-shadow: var(--shadow-sm);
         position: sticky;
         inset-block-start: 0;
         z-index: 60;
@@ -141,7 +142,7 @@ import type { SupportedLocale } from '../core/dictionaries';
         gap: 0.45rem;
         background: var(--bg-page);
         border: 1px solid var(--border-subtle);
-        border-radius: 0.55rem;
+        border-radius: var(--radius);
         padding: 0.35rem 0.6rem;
         flex: 1;
         max-inline-size: 26rem;
@@ -161,7 +162,7 @@ import type { SupportedLocale } from '../core/dictionaries';
       }
       .st-top__search:focus-within {
         border-color: var(--action-primary);
-        outline: 2px solid color-mix(in srgb, var(--action-primary) 30%, transparent);
+        box-shadow: var(--focus-ring);
       }
       .st-top__spacer {
         flex: 1;
@@ -170,7 +171,7 @@ import type { SupportedLocale } from '../core/dictionaries';
         position: absolute;
         inset-block-start: -0.3rem;
         inset-inline-end: -0.3rem;
-        background: var(--action-danger);
+        background: var(--brand-red);
         color: #fff;
         font-size: 0.62rem;
         font-weight: 700;
@@ -187,10 +188,10 @@ import type { SupportedLocale } from '../core/dictionaries';
         color: var(--text-secondary);
       }
       .st-top__select select {
-        background: var(--bg-page);
+        background: var(--bg-surface);
         color: var(--text-primary);
-        border: 1px solid var(--border-subtle);
-        border-radius: 0.5rem;
+        border: 1px solid var(--border-default);
+        border-radius: var(--radius-sm);
         padding: 0.35rem 0.4rem;
         font-size: 0.8rem;
       }
@@ -202,22 +203,30 @@ import type { SupportedLocale } from '../core/dictionaries';
         align-items: center;
         gap: 0.5rem;
         border: 1px solid var(--border-subtle);
-        background: var(--bg-page);
-        border-radius: 0.6rem;
+        background: var(--bg-surface);
+        border-radius: var(--radius-sm);
         padding: 0.3rem 0.5rem;
         cursor: pointer;
         color: var(--text-primary);
+        transition:
+          border-color 0.15s ease,
+          background-color 0.15s ease;
+      }
+      .st-user__btn:hover {
+        background: var(--bg-subtle);
+        border-color: var(--border-strong);
       }
       .st-user__avatar {
         inline-size: 2rem;
         block-size: 2rem;
         border-radius: 50%;
-        background: var(--bg-inverse);
-        color: var(--text-inverse);
+        background: linear-gradient(135deg, var(--brand-primary), var(--brand-navy));
+        color: #fff;
         display: grid;
         place-items: center;
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         font-weight: 700;
+        letter-spacing: 0.02em;
       }
       .st-user__meta {
         display: grid;
@@ -234,10 +243,10 @@ import type { SupportedLocale } from '../core/dictionaries';
         inset-block-start: calc(100% + 0.4rem);
         background: var(--bg-elevated);
         border: 1px solid var(--border-default);
-        border-radius: 0.6rem;
+        border-radius: var(--radius);
         padding: 0.6rem;
         min-inline-size: 14rem;
-        box-shadow: var(--shadow-md);
+        box-shadow: var(--shadow-lg);
         z-index: 80;
       }
       .st-user__signed {
@@ -260,7 +269,7 @@ import type { SupportedLocale } from '../core/dictionaries';
         min-block-size: 2.75rem;
       }
       .st-user__item:hover {
-        background: var(--border-subtle);
+        background: var(--bg-subtle);
       }
       @media (max-width: 767px) {
         .st-user__meta,
